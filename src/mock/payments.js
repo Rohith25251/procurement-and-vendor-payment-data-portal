@@ -1,0 +1,62 @@
+export const INITIAL_PAYMENTS = [
+  {
+    id: "pmt_3001",
+    invoiceId: "inv_2002",
+    invoiceNumber: "INV-CYB-5541",
+    poId: "po_1003",
+    poNumber: "PO-2026-003",
+    vendorId: "vnd_cyber_02",
+    vendorName: "CyberDynamics IT Solutions",
+    amountPaid: 32000.00,
+    invoiceTotal: 32000.00,
+    runningBalance: 0.00,
+    paymentMethod: "ACH Direct Deposit",
+    referenceNumber: "ACH-9948210394",
+    paymentDate: "2026-07-05",
+    status: "Paid", // Pending, Partially Paid, Paid, Overdue
+    installmentType: "Full Payment",
+    notes: "Full clearance for cloud migration milestone 1.",
+    vendorApproved: true,
+    vendorApprovedAt: "2026-07-06 09:15 AM"
+  },
+  {
+    id: "pmt_3002",
+    invoiceId: "inv_2001",
+    invoiceNumber: "INV-APX-9901",
+    poId: "po_1001",
+    poNumber: "PO-2026-001",
+    vendorId: "vnd_apex_01",
+    vendorName: "Apex Metal Components Pvt Ltd",
+    amountPaid: 10000.00,
+    invoiceTotal: 20350.00,
+    runningBalance: 10350.00,
+    paymentMethod: "Wire Transfer",
+    referenceNumber: "WIRE-TXN-882190",
+    paymentDate: "2026-07-18",
+    status: "Partially Paid",
+    installmentType: "Installment 1 of 2",
+    notes: "50% upfront disbursement upon batch verification.",
+    vendorApproved: true,
+    vendorApprovedAt: "2026-07-19 10:30 AM"
+  },
+  {
+    id: "pmt_3003",
+    invoiceId: "inv_2003",
+    invoiceNumber: "INV-VNG-1102",
+    poId: "po_1004",
+    poNumber: "PO-2026-004",
+    vendorId: "vnd_vanguard_05",
+    vendorName: "Vanguard Sustainable Packaging",
+    amountPaid: 0.00,
+    invoiceTotal: 15620.00,
+    runningBalance: 15620.00,
+    paymentMethod: null,
+    referenceNumber: null,
+    paymentDate: null,
+    status: "Pending", // Awaiting manager processing
+    installmentType: "Pending Disbursement",
+    notes: "Awaiting invoice verification queue",
+    vendorApproved: false,
+    vendorApprovedAt: null
+  }
+];
