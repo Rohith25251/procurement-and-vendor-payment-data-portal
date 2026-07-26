@@ -7,7 +7,7 @@ import { TableSkeleton } from '../../components/common/LoadingSkeleton';
 import { Modal } from '../../components/common/Modal';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { 
-  Package, Plus, Edit, Trash2, Tag, DollarSign, Clock, Layers 
+  Package, Plus, Edit, Trash2, Tag, IndianRupee, Clock, Layers 
 } from 'lucide-react';
 
 export const VendorProducts = () => {
@@ -186,7 +186,7 @@ export const VendorProducts = () => {
               <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
                 <div>
                   <span className="text-[10px] text-slate-400 font-semibold block uppercase">Unit Price</span>
-                  <span className="text-lg font-extrabold text-emerald-600">${prod.unitPrice.toLocaleString()} USD</span>
+                  <span className="text-lg font-extrabold text-emerald-600">₹{prod.unitPrice.toLocaleString('en-IN')} INR</span>
                 </div>
 
                 <div className="flex items-center gap-1.5">
@@ -253,7 +253,7 @@ export const VendorProducts = () => {
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">Unit Price ($ USD) *</label>
+              <label className="block font-semibold text-slate-700 mb-1">Unit Price (₹ INR) *</label>
               <input
                 type="number"
                 required
@@ -314,7 +314,7 @@ export const VendorProducts = () => {
               />
             </div>
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">Unit Price ($)</label>
+              <label className="block font-semibold text-slate-700 mb-1">Unit Price (₹)</label>
               <input
                 type="number"
                 required

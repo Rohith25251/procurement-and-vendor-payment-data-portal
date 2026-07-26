@@ -5,7 +5,7 @@ export const INITIAL_PURCHASE_ORDERS = [
     vendorId: "vnd_apex_01",
     vendorName: "Apex Metal Components Pvt Ltd",
     category: "Hardware & Raw Materials",
-    status: "Invoice Verified", // PO Status
+    status: "Delivered", // PO Status
     createdDate: "2026-07-02",
     approvedDate: "2026-07-03",
     sentDate: "2026-07-03",
@@ -17,7 +17,7 @@ export const INITIAL_PURCHASE_ORDERS = [
     paymentTerms: "Net 30",
     deliveryAddress: "Warehouse B, Gate 4, 120 Logistics Hub, Chicago IL",
     totalAmount: 18500.00,
-    currency: "USD",
+    currency: "INR",
     notes: "High priority precision machined alloy brackets batch.",
     queryComment: null,
     rejectionReason: null,
@@ -27,12 +27,12 @@ export const INITIAL_PURCHASE_ORDERS = [
     ],
     history: [
       { status: "Requested", timestamp: "2026-07-02 10:15 AM", actor: "Eleanor Vance (Manager)" },
-      { status: "Approved", timestamp: "2026-07-03 02:30 PM", actor: "Marcus Brody (Manager)" },
+      { status: "Approved", timestamp: "2026-07-03 02:30 PM", actor: "Eleanor Vance (Manager)" },
       { status: "Sent to Vendor", timestamp: "2026-07-03 03:00 PM", actor: "System" },
       { status: "Accepted", timestamp: "2026-07-04 09:10 AM", actor: "David Miller (Vendor)" },
       { status: "Delivered", timestamp: "2026-07-12 11:45 AM", actor: "David Miller (Vendor)" },
       { status: "Invoice Submitted", timestamp: "2026-07-14 04:20 PM", actor: "David Miller (Vendor)" },
-      { status: "Invoice Verified", timestamp: "2026-07-16 01:15 PM", actor: "Marcus Brody (Manager)" }
+      { status: "Invoice Verified", timestamp: "2026-07-16 01:15 PM", actor: "Eleanor Vance (Manager)" }
     ]
   },
   {
@@ -41,7 +41,7 @@ export const INITIAL_PURCHASE_ORDERS = [
     vendorId: "vnd_apex_01",
     vendorName: "Apex Metal Components Pvt Ltd",
     category: "Hardware & Raw Materials",
-    status: "Accepted",
+    status: "Invoice Generated",
     createdDate: "2026-07-15",
     approvedDate: "2026-07-16",
     sentDate: "2026-07-16",
@@ -50,7 +50,7 @@ export const INITIAL_PURCHASE_ORDERS = [
     paymentTerms: "Net 15",
     deliveryAddress: "Plant 1 Assembly Floor, Chicago IL",
     totalAmount: 9400.00,
-    currency: "USD",
+    currency: "INR",
     notes: "Custom CNC milled casing units for Q3 production line.",
     queryComment: null,
     rejectionReason: null,
@@ -59,7 +59,7 @@ export const INITIAL_PURCHASE_ORDERS = [
     ],
     history: [
       { status: "Requested", timestamp: "2026-07-15 09:00 AM", actor: "Eleanor Vance (Manager)" },
-      { status: "Approved", timestamp: "2026-07-16 11:00 AM", actor: "Marcus Brody (Manager)" },
+      { status: "Approved", timestamp: "2026-07-16 11:00 AM", actor: "Eleanor Vance (Manager)" },
       { status: "Sent to Vendor", timestamp: "2026-07-16 11:05 AM", actor: "System" },
       { status: "Accepted", timestamp: "2026-07-17 08:45 AM", actor: "David Miller (Vendor)" }
     ]
@@ -83,7 +83,7 @@ export const INITIAL_PURCHASE_ORDERS = [
     paymentTerms: "Immediate",
     deliveryAddress: "HQ Server Room & Remote Access",
     totalAmount: 32000.00,
-    currency: "USD",
+    currency: "INR",
     notes: "Enterprise cloud migration consulting & security audit Q2.",
     queryComment: null,
     rejectionReason: null,
@@ -93,13 +93,13 @@ export const INITIAL_PURCHASE_ORDERS = [
     ],
     history: [
       { status: "Requested", timestamp: "2026-06-10 02:00 PM", actor: "Eleanor Vance (Manager)" },
-      { status: "Approved", timestamp: "2026-06-11 10:00 AM", actor: "Marcus Brody (Manager)" },
+      { status: "Approved", timestamp: "2026-06-11 10:00 AM", actor: "Eleanor Vance (Manager)" },
       { status: "Sent to Vendor", timestamp: "2026-06-11 10:05 AM", actor: "System" },
       { status: "Accepted", timestamp: "2026-06-12 09:30 AM", actor: "Sarah Jenkins (Vendor)" },
       { status: "Delivered", timestamp: "2026-06-25 05:00 PM", actor: "Sarah Jenkins (Vendor)" },
       { status: "Invoice Submitted", timestamp: "2026-06-26 11:20 AM", actor: "Sarah Jenkins (Vendor)" },
-      { status: "Invoice Verified", timestamp: "2026-06-28 03:40 PM", actor: "Marcus Brody (Manager)" },
-      { status: "Paid", timestamp: "2026-07-05 10:00 AM", actor: "Marcus Brody (Manager)" }
+      { status: "Invoice Verified", timestamp: "2026-06-28 03:40 PM", actor: "Eleanor Vance (Manager)" },
+      { status: "Paid", timestamp: "2026-07-05 10:00 AM", actor: "Eleanor Vance (Manager)" }
     ]
   },
   {
@@ -108,7 +108,7 @@ export const INITIAL_PURCHASE_ORDERS = [
     vendorId: "vnd_vanguard_05",
     vendorName: "Vanguard Sustainable Packaging",
     category: "Packaging & Materials",
-    status: "Delivered",
+    status: "Out for Delivery",
     createdDate: "2026-07-05",
     approvedDate: "2026-07-06",
     sentDate: "2026-07-06",
@@ -118,7 +118,7 @@ export const INITIAL_PURCHASE_ORDERS = [
     paymentTerms: "Net 30",
     deliveryAddress: "Fulfillment Center, Bldg 3, Austin TX",
     totalAmount: 14200.00,
-    currency: "USD",
+    currency: "INR",
     notes: "100% Recyclable heavy-duty corrugated shipping cartons.",
     queryComment: null,
     rejectionReason: null,
@@ -128,7 +128,7 @@ export const INITIAL_PURCHASE_ORDERS = [
     ],
     history: [
       { status: "Requested", timestamp: "2026-07-05 11:30 AM", actor: "Eleanor Vance (Manager)" },
-      { status: "Approved", timestamp: "2026-07-06 09:00 AM", actor: "Marcus Brody (Manager)" },
+      { status: "Approved", timestamp: "2026-07-06 09:00 AM", actor: "Eleanor Vance (Manager)" },
       { status: "Sent to Vendor", timestamp: "2026-07-06 09:05 AM", actor: "System" },
       { status: "Accepted", timestamp: "2026-07-07 10:15 AM", actor: "Emily Watson (Vendor)" },
       { status: "Delivered", timestamp: "2026-07-20 02:30 PM", actor: "Emily Watson (Vendor)" }
@@ -140,13 +140,13 @@ export const INITIAL_PURCHASE_ORDERS = [
     vendorId: "vnd_bioclean_03",
     vendorName: "BioClean Environmental Services",
     category: "Facilities & Operations",
-    status: "Requested",
+    status: "Invoice Requested",
     createdDate: "2026-07-22",
     expectedDeliveryDate: "2026-08-05",
     paymentTerms: "Net 30",
     deliveryAddress: "HQ Facility & Annex B, Austin TX",
     totalAmount: 6800.00,
-    currency: "USD",
+    currency: "INR",
     notes: "Bi-annual hazardous material disposal & deep sanitation.",
     queryComment: null,
     rejectionReason: null,
@@ -163,7 +163,7 @@ export const INITIAL_PURCHASE_ORDERS = [
     vendorId: "vnd_cyber_02",
     vendorName: "CyberDynamics IT Solutions",
     category: "IT & Software Services",
-    status: "Query Raised",
+    status: "Invoice Requested",
     createdDate: "2026-07-18",
     approvedDate: "2026-07-19",
     sentDate: "2026-07-19",
@@ -171,7 +171,7 @@ export const INITIAL_PURCHASE_ORDERS = [
     paymentTerms: "Net 15",
     deliveryAddress: "Remote License Provisioning",
     totalAmount: 16500.00,
-    currency: "USD",
+    currency: "INR",
     notes: "Quarterly seat upgrades for DevOps toolchain licenses.",
     queryComment: "Please clarify if this order includes 24/7 dedicated enterprise SLA support response times?",
     rejectionReason: null,
@@ -180,7 +180,7 @@ export const INITIAL_PURCHASE_ORDERS = [
     ],
     history: [
       { status: "Requested", timestamp: "2026-07-18 10:00 AM", actor: "Eleanor Vance (Manager)" },
-      { status: "Approved", timestamp: "2026-07-19 11:30 AM", actor: "Marcus Brody (Manager)" },
+      { status: "Approved", timestamp: "2026-07-19 11:30 AM", actor: "Eleanor Vance (Manager)" },
       { status: "Sent to Vendor", timestamp: "2026-07-19 11:35 AM", actor: "System" },
       { status: "Query Raised", timestamp: "2026-07-20 09:45 AM", actor: "Sarah Jenkins (Vendor)" }
     ]

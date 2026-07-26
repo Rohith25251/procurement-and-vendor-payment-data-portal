@@ -11,8 +11,8 @@ export const INITIAL_INVOICES = [
     subtotal: 18500.00,
     taxAmount: 1850.00,
     totalAmount: 20350.00,
-    currency: "USD",
-    status: "Verified", // Submitted, Verified, Rejected, Partially Paid, Paid
+    currency: "INR",
+    status: "Paid", // Submitted, Verified, Rejected, Partially Paid, Paid
     isDuplicateRisk: false,
     duplicateWarningReason: null,
     attachment: {
@@ -25,11 +25,11 @@ export const INITIAL_INVOICES = [
       { description: "Stainless Steel Fasteners Set (M8)", quantity: 120, unitPrice: 50.00, total: 6000.00 }
     ],
     rejectionReason: null,
-    paidAmount: 10000.00,
-    remainingBalance: 10350.00,
+    paidAmount: 20350.00,
+    remainingBalance: 0.00,
     submittedAt: "2026-07-14 04:20 PM",
     verifiedAt: "2026-07-16 01:15 PM",
-    verifiedBy: "Marcus Brody"
+    verifiedBy: "Eleanor Vance"
   },
   {
     id: "inv_2002",
@@ -43,7 +43,7 @@ export const INITIAL_INVOICES = [
     subtotal: 32000.00,
     taxAmount: 0.00,
     totalAmount: 32000.00,
-    currency: "USD",
+    currency: "INR",
     status: "Paid",
     isDuplicateRisk: false,
     duplicateWarningReason: null,
@@ -61,7 +61,7 @@ export const INITIAL_INVOICES = [
     remainingBalance: 0.00,
     submittedAt: "2026-06-26 11:20 AM",
     verifiedAt: "2026-06-28 03:40 PM",
-    verifiedBy: "Marcus Brody"
+    verifiedBy: "Eleanor Vance"
   },
   {
     id: "inv_2003",
@@ -75,10 +75,10 @@ export const INITIAL_INVOICES = [
     subtotal: 14200.00,
     taxAmount: 1420.00,
     totalAmount: 15620.00,
-    currency: "USD",
+    currency: "INR",
     status: "Submitted", // Needs manager verification
     isDuplicateRisk: true,
-    duplicateWarningReason: "Similar amount ($15,620.00) & vendor combo submitted within 7 days",
+    duplicateWarningReason: "Similar amount (₹15,620.00) & vendor combo submitted within 7 days",
     attachment: {
       fileName: "Vanguard_Packaging_INV1102.pdf",
       fileSize: "2.1 MB",
@@ -107,7 +107,7 @@ export const INITIAL_INVOICES = [
     subtotal: 18500.00,
     taxAmount: 1850.00,
     totalAmount: 20350.00,
-    currency: "USD",
+    currency: "INR",
     status: "Rejected",
     isDuplicateRisk: true,
     duplicateWarningReason: "Exact match found with active Invoice #INV-APX-9901",

@@ -84,7 +84,7 @@ export const VendorDetailPage = () => {
         deliveryAddress: 'Main Warehouse, Gate 4, Chicago IL',
         notes: orderForm.notes,
         totalAmount: itemTotal,
-        currency: 'USD',
+        currency: 'INR',
         items: [
           {
             id: `item_${Date.now()}`,
@@ -96,7 +96,7 @@ export const VendorDetailPage = () => {
         ]
       });
 
-      showToast(`Purchase order for ${prod.name} successfully created!`, 'success');
+      showToast(`Invoice requested for ${prod.name} successfully!`, 'success');
       setIsOrderModalOpen(false);
       navigate('/manager/procurement');
     } catch (err) {
@@ -185,7 +185,7 @@ export const VendorDetailPage = () => {
                 <div className="pt-2 border-t flex items-center justify-between">
                   <div>
                     <span className="text-[10px] text-slate-400 block font-semibold">Unit Price</span>
-                    <span className="text-base font-extrabold text-primary-600">${prod.unitPrice.toLocaleString()} USD</span>
+                    <span className="text-base font-extrabold text-primary-600">₹{prod.unitPrice.toLocaleString('en-IN')} INR</span>
                   </div>
 
                   <button
@@ -193,7 +193,7 @@ export const VendorDetailPage = () => {
                     className="px-3 py-1.5 bg-primary-600 hover:bg-primary-500 text-white font-bold text-xs rounded-xl shadow-xs transition-smooth flex items-center gap-1.5"
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    <span>Order Product</span>
+                    <span>Request Invoice</span>
                   </button>
                 </div>
               </div>
@@ -266,7 +266,7 @@ export const VendorDetailPage = () => {
       </div>
 
       {/* Direct Order Modal */}
-      <Modal isOpen={isOrderModalOpen} onClose={() => setIsOrderModalOpen(false)} title={`Issue Order to ${vendor.name}`}>
+      <Modal isOpen={isOrderModalOpen} onClose={() => setIsOrderModalOpen(false)} title={`Request Invoice from ${vendor.name}`}>
         <form onSubmit={handlePlaceOrderSubmit} className="space-y-4 text-xs">
           <div>
             <label className="block font-semibold text-slate-700 mb-1">Select Catalog Product *</label>
@@ -276,7 +276,7 @@ export const VendorDetailPage = () => {
               className="w-full p-2.5 bg-slate-50 border rounded-xl font-bold"
             >
               {products.map(p => (
-                <option key={p.id} value={p.id}>{p.name} — ${p.unitPrice.toLocaleString()} USD ({p.sku})</option>
+                <option key={p.id} value={p.id}>{p.name} — ₹{p.unitPrice.toLocaleString('en-IN')} INR ({p.sku})</option>
               ))}
             </select>
           </div>
@@ -321,7 +321,7 @@ export const VendorDetailPage = () => {
               Cancel
             </button>
             <button type="submit" className="px-4 py-2 bg-primary-600 text-white font-bold rounded-xl shadow-md">
-              Issue PO Now
+              Request Invoice
             </button>
           </div>
         </form>

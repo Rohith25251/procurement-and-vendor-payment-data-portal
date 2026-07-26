@@ -1,21 +1,41 @@
-import { delay, getStorageData, setStorageData } from './apiUtils';
-import { INITIAL_PAYMENTS } from '../mock/payments';
+import { supabase } from '../supabaseClient';
+import { orderApi } from './orderApi';
+import { invoiceApi } from './invoiceApi';
 
-const PAYMENTS_KEY = 'procure_payments_db';
+const mapDBToPayment = (p) => {
+  if (!p) return null;
+  return {
+    id: p.id,
+    invoiceId: p.invoice_id,
+    invoiceNumber: p.invoice_number,
+    poId: p.po_id,
+    poNumber: p.po_number,
+    vendorId: p.vendor_id,
+    vendorName: p.vendor_name,
+    amountPaid: Number(p.amount_paid) || 0,
+    runningBalance: Number(p.running_balance) || 0,
+    paymentMethod: p.payment_method,
+    referenceNumber: p.reference_number,
+    paymentDate: p.payment_date,
+    status: p.status,
+    notes: p.notes,
+    vendorApproved: p.is_external || false,
+    vendorApprovedAt: p.is_external ? p.payment_date : null
+  };
+};
 
 export const paymentApi = {
   getPayments: async () => {
-    await delay(400);
-    return getStorageData(PAYMENTS_KEY, INITIAL_PAYMENTS);
+    const { data, error } = await supabase
+      .from('payments')
+      .select('*')
+      .order('payment_date', { ascending: false });
+    if (error) throw error;
+    return data.map(mapDBToPayment);
   },
 
-  processPayment: async (paymentData, managerName = 'Marcus Brody') => {
-    await delay(500);
-    const payments = getStorageData(PAYMENTS_KEY, INITIAL_PAYMENTS);
-    const invoices = getStorageData('procure_invoices_db', []);
-    const orders = getStorageData('procure_orders_db', []);
-
-    const invoice = invoices.find(i => i.id === paymentData.invoiceId);
+  processPayment: async (paymentData, managerName = 'Eleanor Vance') => {
+    const invoice = await invoiceApi.getInvoiceById(paymentData.invoiceId);
     if (!invoice) throw new Error('Associated invoice not found');
 
     const amountToPay = Number(paymentData.amountPaid);
@@ -28,83 +48,76 @@ export const paymentApi = {
     const paymentStatus = isFullyPaid ? 'Paid' : 'Partially Paid';
     const today = new Date().toISOString().split('T')[0];
 
-    // Create payment record
-    const newPaymentRecord = {
+    const dbPayment = {
       id: `pmt_${Date.now()}`,
-      invoiceId: invoice.id,
-      invoiceNumber: invoice.invoiceNumber,
-      poId: invoice.poId,
-      poNumber: invoice.poNumber,
-      vendorId: invoice.vendorId,
-      vendorName: invoice.vendorName,
-      amountPaid: amountToPay,
-      invoiceTotal: invoiceTotal,
-      runningBalance: newRemainingBalance,
-      paymentMethod: paymentData.paymentMethod,
-      referenceNumber: paymentData.referenceNumber,
-      paymentDate: today,
+      invoice_id: invoice.id,
+      invoice_number: invoice.invoiceNumber,
+      po_id: invoice.poId,
+      po_number: invoice.poNumber,
+      vendor_id: invoice.vendorId,
+      vendor_name: invoice.vendorName,
+      amount_paid: amountToPay,
+      running_balance: newRemainingBalance,
+      payment_method: paymentData.paymentMethod,
+      reference_number: paymentData.referenceNumber,
+      payment_date: today,
       status: paymentStatus,
-      installmentType: isFullyPaid ? 'Full Clearance' : `Installment Payment ($${amountToPay.toLocaleString()})`,
-      notes: paymentData.notes || 'Payment processed by manager',
-      vendorApproved: false,
-      vendorApprovedAt: null
+      is_external: false,
+      notes: paymentData.notes || 'Payment processed by manager'
     };
 
-    const updatedPayments = [newPaymentRecord, ...payments];
-    setStorageData(PAYMENTS_KEY, updatedPayments);
+    const { data: pmtData, error: pmtError } = await supabase
+      .from('payments')
+      .insert(dbPayment)
+      .select('*');
+
+    if (pmtError) throw pmtError;
 
     // Update Invoice status and balance
-    const updatedInvoices = invoices.map(inv => {
-      if (inv.id === invoice.id) {
-        return {
-          ...inv,
-          paidAmount: newPaidAmount,
-          remainingBalance: newRemainingBalance,
-          status: isFullyPaid ? 'Paid' : 'Partially Paid'
-        };
-      }
-      return inv;
-    });
-    setStorageData('procure_invoices_db', updatedInvoices);
+    const { error: invError } = await supabase
+      .from('invoices')
+      .update({
+        paid_amount: newPaidAmount,
+        remaining_balance: newRemainingBalance,
+        status: isFullyPaid ? 'Paid' : 'Partially Paid'
+      })
+      .eq('id', invoice.id);
+
+    if (invError) throw invError;
 
     // If fully paid, update PO status to "Paid"
     if (isFullyPaid && invoice.poId) {
-      const timestamp = new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      const updatedOrders = orders.map(po => {
-        if (po.id === invoice.poId) {
-          const history = po.history || [];
-          return {
-            ...po,
+      try {
+        const po = await orderApi.getOrderById(invoice.poId);
+        const history = po.history || [];
+        const timestamp = new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const updatedHistory = [...history, { status: 'Paid', timestamp, actor: `${managerName} (Manager)` }];
+
+        await supabase
+          .from('purchase_orders')
+          .update({
             status: 'Paid',
-            paidDate: today,
-            history: [...history, { status: 'Paid', timestamp, actor: `${managerName} (Manager)` }]
-          };
-        }
-        return po;
-      });
-      setStorageData('procure_orders_db', updatedOrders);
+            history: updatedHistory
+          })
+          .eq('id', invoice.poId);
+      } catch (e) {
+        console.error("Failed to update PO status to Paid", e);
+      }
     }
 
-    return newPaymentRecord;
+    return mapDBToPayment(pmtData[0]);
   },
 
   approvePaymentVendor: async (paymentId, vendorName = 'Vendor') => {
-    await delay(400);
-    const payments = getStorageData(PAYMENTS_KEY, INITIAL_PAYMENTS);
-    const today = new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const { data, error } = await supabase
+      .from('payments')
+      .update({
+        is_external: true
+      })
+      .eq('id', paymentId)
+      .select('*');
 
-    const updated = payments.map(pmt => {
-      if (pmt.id === paymentId) {
-        return {
-          ...pmt,
-          vendorApproved: true,
-          vendorApprovedAt: today
-        };
-      }
-      return pmt;
-    });
-
-    setStorageData(PAYMENTS_KEY, updated);
-    return updated.find(p => p.id === paymentId);
+    if (error) throw error;
+    return mapDBToPayment(data[0]);
   }
 };

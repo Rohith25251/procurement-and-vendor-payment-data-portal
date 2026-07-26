@@ -87,13 +87,13 @@ export const ManagerProcurement = () => {
     setPoForm({ ...poForm, items: nextItems });
   };
 
-  const handleApprovePO = async (id) => {
+  const handleConfirmDelivery = async (id) => {
     try {
-      await orderApi.approveOrder(id);
-      showToast('Purchase Order approved and sent to vendor', 'success');
+      await orderApi.confirmDelivery(id, 'Eleanor Vance');
+      showToast('Delivery confirmed. Order marked as Delivered!', 'success');
       loadData();
     } catch (err) {
-      showToast('Failed to approve PO', 'error');
+      showToast('Failed to confirm delivery', 'error');
     }
   };
 
@@ -158,7 +158,7 @@ export const ManagerProcurement = () => {
         deliveryAddress: poForm.deliveryAddress,
         notes: poForm.notes,
         totalAmount,
-        currency: 'USD',
+        currency: 'INR',
         items: formattedItems
       });
 
@@ -179,8 +179,7 @@ export const ManagerProcurement = () => {
   });
 
   const allStatuses = [
-    'Requested', 'Approved', 'Sent to Vendor', 'Accepted', 
-    'Delivered', 'Invoice Submitted', 'Invoice Verified', 'Paid', 'Rejected', 'Query Raised'
+    'Invoice Requested', 'Invoice Generated', 'Paid', 'Out for Delivery', 'Delivered'
   ];
 
   return (
@@ -200,7 +199,7 @@ export const ManagerProcurement = () => {
           className="px-4 py-2.5 bg-primary-600 hover:bg-primary-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-primary-600/20 transition-smooth flex items-center gap-2"
         >
           <Plus className="w-4 h-4" />
-          <span>Create New Purchase Order</span>
+          <span>Request Invoice</span>
         </button>
       </div>
 
@@ -243,29 +242,20 @@ export const ManagerProcurement = () => {
                       <div>{po.createdDate}</div>
                       <div className="text-[10px] text-slate-400">Due: {po.expectedDeliveryDate}</div>
                     </td>
-                    <td className="py-4 px-6 font-bold text-slate-900">${po.totalAmount.toLocaleString()}</td>
+                    <td className="py-4 px-6 font-bold text-slate-900">₹{po.totalAmount.toLocaleString('en-IN')}</td>
                     <td className="py-4 px-6">
                       <StatusBadge status={po.status} />
                     </td>
                     <td className="py-4 px-6 text-right">
                       <div className="flex items-center justify-end gap-1.5">
-                        {po.status === 'Requested' && (
-                          <>
-                            <button
-                              onClick={() => handleApprovePO(po.id)}
-                              className="px-2.5 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-bold rounded-lg text-xs flex items-center gap-1 transition-colors"
-                            >
-                              <CheckCircle className="w-3.5 h-3.5" />
-                              <span>Approve</span>
-                            </button>
-                            <button
-                              onClick={() => setRejectDialog({ open: true, orderId: po.id })}
-                              className="px-2.5 py-1 bg-rose-100 hover:bg-rose-200 text-rose-800 font-bold rounded-lg text-xs flex items-center gap-1 transition-colors"
-                            >
-                              <XCircle className="w-3.5 h-3.5" />
-                              <span>Reject</span>
-                            </button>
-                          </>
+                        {po.status === 'Out for Delivery' && (
+                          <button
+                            onClick={() => handleConfirmDelivery(po.id)}
+                            className="px-2.5 py-1 bg-purple-100 hover:bg-purple-200 text-purple-800 font-bold rounded-lg text-xs flex items-center gap-1 transition-colors"
+                          >
+                            <CheckCircle className="w-3.5 h-3.5" />
+                            <span>Confirm Delivery</span>
+                          </button>
                         )}
                         <button
                           onClick={() => navigate(`/manager/procurement/${po.id}`)}
@@ -368,7 +358,7 @@ export const ManagerProcurement = () => {
                     required
                     min="0"
                     step="0.01"
-                    placeholder="Price ($)"
+                    placeholder="Price (₹)"
                     value={item.unitPrice}
                     onChange={(e) => handleItemChange(idx, 'unitPrice', e.target.value)}
                     className="w-28 p-2 bg-white border rounded-xl text-right font-bold"
@@ -387,7 +377,7 @@ export const ManagerProcurement = () => {
             ))}
 
             <div className="text-right pt-2 border-t font-bold text-sm text-slate-900">
-              Total Amount: ${calculateTotal().toLocaleString()} USD
+              Total Amount: ₹{calculateTotal().toLocaleString('en-IN')} INR
             </div>
           </div>
 
@@ -396,7 +386,7 @@ export const ManagerProcurement = () => {
               Cancel
             </button>
             <button type="submit" className="px-4 py-2 bg-primary-600 text-white font-bold rounded-xl shadow-md">
-              Issue PO Request
+              Request Invoice
             </button>
           </div>
         </form>

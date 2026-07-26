@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
+import { supabase } from '../../supabaseClient';
 import { 
-  User, Mail, Lock, KeyRound, Save, ShieldCheck, Building2, CheckCircle2 
+  User, Mail, Lock, KeyRound, Save, ShieldCheck, Building2, CheckCircle2, Upload 
 } from 'lucide-react';
 
 export const ManagerProfile = () => {
   const { user, updateProfile } = useAuth();
   const { showToast } = useToast();
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   const [formData, setFormData] = useState({
     name: user?.name || '',
@@ -18,6 +20,51 @@ export const ManagerProfile = () => {
     newPassword: '',
     confirmPassword: ''
   });
+
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      showToast('File size must be under 2MB', 'warning');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `avatars/${user.id}-${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('product-images')
+        .upload(fileName, file, { cacheControl: '3600', upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: publicUrlData } = supabase.storage.from('product-images').getPublicUrl(fileName);
+      const publicUrl = publicUrlData.publicUrl;
+
+      await updateProfile({ avatar: publicUrl });
+      showToast('Profile picture uploaded successfully!', 'success');
+    } catch (err) {
+      console.error(err);
+      showToast(err.message || 'Failed to upload profile picture', 'error');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    setUploading(true);
+    try {
+      await updateProfile({ avatar: null });
+      showToast('Profile picture removed', 'success');
+    } catch (err) {
+      showToast('Failed to remove profile picture', 'error');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -68,6 +115,49 @@ export const ManagerProfile = () => {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Profile Picture Upload Card */}
+        <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200/80 shadow-soft flex flex-col sm:flex-row items-center gap-6">
+          <div className="relative">
+            {user?.avatar ? (
+              <img
+                src={user.avatar}
+                alt={user.name}
+                className="w-24 h-24 rounded-3xl object-cover ring-4 ring-primary-600/10 shadow-md"
+              />
+            ) : (
+              <div className="w-24 h-24 rounded-3xl flex items-center justify-center font-black text-3xl text-white bg-primary-600 ring-4 ring-primary-600/10 shadow-md">
+                {user?.name ? user.name.charAt(0).toUpperCase() : 'M'}
+              </div>
+            )}
+          </div>
+          <div className="text-center sm:text-left space-y-2">
+            <h4 className="text-sm font-bold text-slate-800">Profile Display Picture</h4>
+            <p className="text-xs text-slate-400">Upload a square image file (JPG, PNG, max 2MB)</p>
+            <div className="flex items-center justify-center sm:justify-start gap-2">
+              <label className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs cursor-pointer shadow-xs transition-colors flex items-center gap-1.5">
+                <Upload className="w-3.5 h-3.5 text-primary-400" />
+                <span>{uploading ? 'Uploading...' : 'Choose Image'}</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  disabled={uploading}
+                  onChange={handleAvatarUpload}
+                  className="hidden"
+                />
+              </label>
+              {user?.avatar && (
+                <button
+                  type="button"
+                  onClick={handleRemoveAvatar}
+                  className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold rounded-xl text-xs transition-colors"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
         {/* Personal & Department Info Card */}
         <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200/80 shadow-soft space-y-4">
           <h3 className="text-base font-bold text-slate-900 flex items-center gap-2 border-b pb-3">

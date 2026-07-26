@@ -1,61 +1,91 @@
-import { delay, getStorageData, setStorageData } from './apiUtils';
-import { INITIAL_PRODUCTS } from '../mock/products';
+import { supabase } from '../supabaseClient';
 
-const PRODUCTS_KEY = 'procure_products_db';
+const mapDBToProduct = (p) => {
+  if (!p) return null;
+  return {
+    id: p.id,
+    vendorId: p.vendor_id,
+    name: p.name,
+    sku: p.sku,
+    category: p.category,
+    unitPrice: Number(p.unit_price) || 0,
+    currency: p.currency || 'INR',
+    stockStatus: p.stock_status || 'In Stock',
+    leadTimeDays: p.lead_time_days || 3,
+    description: p.description || '',
+    imageUrl: p.image_url || ''
+  };
+};
 
 export const productApi = {
   getAllProducts: async () => {
-    await delay(300);
-    return getStorageData(PRODUCTS_KEY, INITIAL_PRODUCTS);
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .order('name');
+    if (error) throw error;
+    return data.map(mapDBToProduct);
   },
 
   getProductsByVendor: async (vendorId) => {
-    await delay(300);
-    const products = getStorageData(PRODUCTS_KEY, INITIAL_PRODUCTS);
-    return products.filter(p => p.vendorId === vendorId || p.vendorId === 'vnd_apex_01');
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .eq('vendor_id', vendorId);
+    if (error) throw error;
+    return data.map(mapDBToProduct);
   },
 
   createProduct: async (productData) => {
-    await delay(400);
-    const products = getStorageData(PRODUCTS_KEY, INITIAL_PRODUCTS);
-    const newProduct = {
-      id: `prd_${Date.now()}`,
+    const dbData = {
+      id: productData.id || `prd_${Date.now()}`,
+      vendor_id: productData.vendorId,
+      name: productData.name,
       sku: productData.sku || `SKU-${Math.floor(100 + Math.random() * 900)}`,
-      currency: 'USD',
-      stockStatus: productData.stockStatus || 'In Stock',
-      leadTimeDays: Number(productData.leadTimeDays || 3),
-      ...productData,
-      unitPrice: Number(productData.unitPrice)
+      category: productData.category,
+      unit_price: Number(productData.unitPrice),
+      currency: productData.currency || 'INR',
+      stock_status: productData.stockStatus || 'In Stock',
+      lead_time_days: Number(productData.leadTimeDays || 3),
+      description: productData.description || '',
+      image_url: productData.imageUrl || ''
     };
 
-    const updated = [newProduct, ...products];
-    setStorageData(PRODUCTS_KEY, updated);
-    return newProduct;
+    const { data, error } = await supabase
+      .from('products')
+      .insert(dbData)
+      .select('*');
+    if (error) throw error;
+    return mapDBToProduct(data[0]);
   },
 
   updateProduct: async (id, productData) => {
-    await delay(400);
-    const products = getStorageData(PRODUCTS_KEY, INITIAL_PRODUCTS);
-    const updated = products.map(p => {
-      if (p.id === id) {
-        return {
-          ...p,
-          ...productData,
-          unitPrice: Number(productData.unitPrice || p.unitPrice)
-        };
-      }
-      return p;
-    });
+    const updateData = {};
+    if (productData.name !== undefined) updateData.name = productData.name;
+    if (productData.sku !== undefined) updateData.sku = productData.sku;
+    if (productData.category !== undefined) updateData.category = productData.category;
+    if (productData.unitPrice !== undefined) updateData.unit_price = Number(productData.unitPrice);
+    if (productData.currency !== undefined) updateData.currency = productData.currency;
+    if (productData.stockStatus !== undefined) updateData.stock_status = productData.stockStatus;
+    if (productData.leadTimeDays !== undefined) updateData.lead_time_days = Number(productData.leadTimeDays);
+    if (productData.description !== undefined) updateData.description = productData.description;
+    if (productData.imageUrl !== undefined) updateData.image_url = productData.imageUrl;
 
-    setStorageData(PRODUCTS_KEY, updated);
-    return updated.find(p => p.id === id);
+    const { data, error } = await supabase
+      .from('products')
+      .update(updateData)
+      .eq('id', id)
+      .select('*');
+    if (error) throw error;
+    return mapDBToProduct(data[0]);
   },
 
   deleteProduct: async (id) => {
-    await delay(400);
-    const products = getStorageData(PRODUCTS_KEY, INITIAL_PRODUCTS);
-    const updated = products.filter(p => p.id !== id);
-    setStorageData(PRODUCTS_KEY, updated);
+    const { error } = await supabase
+      .from('products')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
     return true;
   }
 };

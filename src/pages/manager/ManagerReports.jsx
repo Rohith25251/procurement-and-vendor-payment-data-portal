@@ -83,7 +83,7 @@ export const ManagerReports = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-soft">
           <p className="text-xs font-semibold uppercase text-slate-400">Total Year-To-Date Spend</p>
-          <h3 className="text-2xl font-extrabold text-slate-900 mt-1">${reportData.summary.totalSpend.toLocaleString()}</h3>
+          <h3 className="text-2xl font-extrabold text-slate-900 mt-1">₹{reportData.summary.totalSpend.toLocaleString('en-IN')}</h3>
           <p className="text-[11px] text-emerald-600 font-semibold mt-1">✓ Across {reportData.summary.totalPOProcessed} POs</p>
         </div>
 
@@ -116,9 +116,9 @@ export const ManagerReports = () => {
               <BarChart data={reportData.categorySpend} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
                 <XAxis dataKey="category" tick={{ fontSize: 10, fill: '#64748B' }} />
-                <YAxis tick={{ fontSize: 11, fill: '#64748B' }} tickFormatter={(val) => `$${val / 1000}k`} />
+                <YAxis tick={{ fontSize: 11, fill: '#64748B' }} tickFormatter={(val) => `₹${val / 1000}k`} />
                 <Tooltip 
-                  formatter={(value) => [`$${value.toLocaleString()}`, 'Total Spend']}
+                  formatter={(value) => [`₹${value.toLocaleString('en-IN')}`, 'Total Spend']}
                   contentStyle={{ backgroundColor: '#0F172A', color: '#fff', borderRadius: '12px' }}
                 />
                 <Bar dataKey="amount" fill="#0369A3" radius={[8, 8, 0, 0]} />
@@ -135,9 +135,9 @@ export const ManagerReports = () => {
               <LineChart data={reportData.monthlySpendTrend} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
                 <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#64748B' }} />
-                <YAxis tick={{ fontSize: 11, fill: '#64748B' }} tickFormatter={(val) => `$${val / 1000}k`} />
+                <YAxis tick={{ fontSize: 11, fill: '#64748B' }} tickFormatter={(val) => `₹${val / 1000}k`} />
                 <Tooltip 
-                  formatter={(value) => [`$${value.toLocaleString()}`, 'Monthly Spend']}
+                  formatter={(value) => [`₹${value.toLocaleString('en-IN')}`, 'Monthly Spend']}
                   contentStyle={{ backgroundColor: '#0F172A', color: '#fff', borderRadius: '12px' }}
                 />
                 <Line type="monotone" dataKey="spend" stroke="#18A303" strokeWidth={3} dot={{ r: 5 }} />
@@ -169,7 +169,7 @@ export const ManagerReports = () => {
                 <tr key={i} className="hover:bg-slate-50/80 transition-colors">
                   <td className="py-4 px-6 font-bold text-slate-900">{v.vendorName}</td>
                   <td className="py-4 px-6 text-slate-500">{v.category}</td>
-                  <td className="py-4 px-6 font-bold text-slate-900">${v.totalSpend.toLocaleString()}</td>
+                  <td className="py-4 px-6 font-bold text-slate-900">₹{v.totalSpend.toLocaleString('en-IN')}</td>
                   <td className="py-4 px-6 font-bold text-emerald-600">{v.onTimeRate}</td>
                   <td className="py-4 px-6 font-bold text-amber-600">{v.score}%</td>
                 </tr>

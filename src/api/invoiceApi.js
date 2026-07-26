@@ -1,43 +1,118 @@
-import { delay, getStorageData, setStorageData } from './apiUtils';
-import { INITIAL_INVOICES } from '../mock/invoices';
+import { supabase } from '../supabaseClient';
 import { orderApi } from './orderApi';
 
-const INVOICES_KEY = 'procure_invoices_db';
+const mapDBToInvoice = (inv) => {
+  if (!inv) return null;
+  return {
+    id: inv.id,
+    invoiceNumber: inv.invoice_number,
+    poId: inv.po_id,
+    poNumber: inv.po_number,
+    vendorId: inv.vendor_id,
+    vendorName: inv.vendor_name,
+    totalAmount: Number(inv.total_amount) || 0,
+    paidAmount: Number(inv.paid_amount) || 0,
+    remainingBalance: Number(inv.remaining_balance) || 0,
+    status: inv.status,
+    submittedAt: inv.submitted_at,
+    pdfUrl: inv.pdf_url,
+    rejectionReason: inv.rejection_reason || null,
+    attachment: {
+      fileName: `Invoice-${inv.invoice_number}.pdf`,
+      fileSize: '1.2 MB',
+      url: inv.pdf_url || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
+    },
+    items: []
+  };
+};
 
 export const invoiceApi = {
   getInvoices: async () => {
-    await delay(400);
-    return getStorageData(INVOICES_KEY, INITIAL_INVOICES);
+    const { data: invoices, error: invError } = await supabase
+      .from('invoices')
+      .select('*')
+      .order('invoice_number', { ascending: false });
+    if (invError) throw invError;
+
+    const { data: pos, error: poError } = await supabase
+      .from('purchase_orders')
+      .select('id, items');
+    if (poError) throw poError;
+
+    const poItemsMap = {};
+    if (pos) {
+      pos.forEach(po => {
+        poItemsMap[po.id] = po.items;
+      });
+    }
+
+    return invoices.map(inv => {
+      const mapped = mapDBToInvoice(inv);
+      mapped.items = (poItemsMap[inv.po_id] || []).map(i => ({
+        description: i.name || i.description,
+        quantity: i.quantity,
+        unitPrice: i.unitPrice,
+        total: i.total
+      }));
+      return mapped;
+    });
   },
 
   getInvoiceById: async (id) => {
-    await delay(300);
-    const invoices = getStorageData(INVOICES_KEY, INITIAL_INVOICES);
-    const invoice = invoices.find(i => i.id === id || i.invoiceNumber === id);
-    if (!invoice) throw new Error('Invoice not found');
-    return invoice;
+    const { data: invoices, error: invError } = await supabase
+      .from('invoices')
+      .select('*')
+      .or(`id.eq.${id},invoice_number.eq.${id}`);
+    if (invError) throw invError;
+    if (!invoices || invoices.length === 0) throw new Error('Invoice not found');
+
+    const inv = invoices[0];
+    const mapped = mapDBToInvoice(inv);
+
+    try {
+      const po = await orderApi.getOrderById(inv.po_id);
+      if (po && po.items) {
+        mapped.items = po.items.map(i => ({
+          description: i.name || i.description,
+          quantity: i.quantity,
+          unitPrice: i.unitPrice,
+          total: i.total
+        }));
+      }
+    } catch (e) {
+      console.warn('Failed to fetch PO items for invoice', e);
+    }
+
+    return mapped;
   },
 
-  checkDuplicate: (newInvoiceNumber, amount, vendorId, existingInvoices) => {
+  checkDuplicate: async (newInvoiceNumber, amount, vendorId) => {
+    const { data: existingInvoices, error } = await supabase
+      .from('invoices')
+      .select('invoice_number, total_amount, vendor_id, status')
+      .neq('status', 'Rejected');
+
+    if (error) return { isDuplicateRisk: false, reason: null };
+
     // 1. Exact invoice number match
     const exactMatch = existingInvoices.find(
-      i => i.invoiceNumber.toLowerCase() === newInvoiceNumber.toLowerCase() && i.status !== 'Rejected'
+      i => i.invoice_number.toLowerCase() === newInvoiceNumber.toLowerCase()
     );
     if (exactMatch) {
       return {
         isDuplicateRisk: true,
-        reason: `Exact match found with active Invoice #${exactMatch.invoiceNumber}`
+        reason: `Exact match found with active Invoice #${exactMatch.invoice_number}`
       };
     }
 
-    // 2. Similar amount & vendor match within 7 days
+    // 2. Similar amount & vendor match
     const closeAmountMatch = existingInvoices.find(
-      i => i.vendorId === vendorId && Math.abs(i.totalAmount - amount) < 1.00 && i.status !== 'Rejected'
+      i => i.vendor_id === vendorId && Math.abs(Number(i.total_amount) - amount) < 1.00
     );
     if (closeAmountMatch) {
       return {
         isDuplicateRisk: true,
-        reason: `Similar amount ($${amount.toLocaleString()}) & vendor combination match active Invoice #${closeAmountMatch.invoiceNumber}`
+        reason: `Similar amount (₹${amount.toLocaleString('en-IN')}) & vendor combination match active Invoice #${closeAmountMatch.invoice_number}`
       };
     }
 
@@ -45,118 +120,110 @@ export const invoiceApi = {
   },
 
   submitInvoice: async (invoiceData, vendorName = 'Vendor') => {
-    await delay(500);
-    const invoices = getStorageData(INVOICES_KEY, INITIAL_INVOICES);
-    
     // Check duplicates
-    const dupCheck = invoiceApi.checkDuplicate(
+    const dupCheck = await invoiceApi.checkDuplicate(
       invoiceData.invoiceNumber,
       invoiceData.totalAmount,
-      invoiceData.vendorId,
-      invoices
+      invoiceData.vendorId
     );
 
-    const today = new Date().toISOString().split('T')[0];
-    const newInvoice = {
+    const nowFormatted = new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    const dbInvoice = {
       id: `inv_${Date.now()}`,
+      invoice_number: invoiceData.invoiceNumber,
+      po_id: invoiceData.poId,
+      po_number: invoiceData.poNumber,
+      vendor_id: invoiceData.vendorId,
+      vendor_name: invoiceData.vendorName,
+      total_amount: invoiceData.totalAmount,
+      paid_amount: 0.00,
+      remaining_balance: invoiceData.totalAmount,
       status: 'Submitted',
-      isDuplicateRisk: dupCheck.isDuplicateRisk,
-      duplicateWarningReason: dupCheck.reason,
-      paidAmount: 0.00,
-      remainingBalance: invoiceData.totalAmount,
-      submittedAt: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      verifiedAt: null,
-      verifiedBy: null,
-      rejectionReason: null,
-      ...invoiceData
+      submitted_at: nowFormatted,
+      pdf_url: invoiceData.pdfUrl || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
     };
 
-    const updatedInvoices = [newInvoice, ...invoices];
-    setStorageData(INVOICES_KEY, updatedInvoices);
+    const { data, error: invError } = await supabase
+      .from('invoices')
+      .insert(dbInvoice)
+      .select('*');
 
-    // Also update PO status to "Invoice Submitted"
-    if (newInvoice.poId) {
-      const orders = getStorageData('procure_orders_db', []);
-      const updatedOrders = orders.map(po => {
-        if (po.id === newInvoice.poId) {
-          const history = po.history || [];
-          const nowFormatted = new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-          return {
-            ...po,
+    if (invError) throw invError;
+
+    // Update PO status to "Invoice Submitted"
+    if (invoiceData.poId) {
+      try {
+        const po = await orderApi.getOrderById(invoiceData.poId);
+        const history = po.history || [];
+        const updatedHistory = [...history, { status: 'Invoice Submitted', timestamp: nowFormatted, actor: `${vendorName} (Vendor)` }];
+
+        await supabase
+          .from('purchase_orders')
+          .update({
             status: 'Invoice Submitted',
-            invoiceSubmittedDate: today,
-            history: [...history, { status: 'Invoice Submitted', timestamp: nowFormatted, actor: `${vendorName} (Vendor)` }]
-          };
-        }
-        return po;
-      });
-      setStorageData('procure_orders_db', updatedOrders);
+            history: updatedHistory
+          })
+          .eq('id', invoiceData.poId);
+      } catch (e) {
+        console.error("Failed to update PO status on invoice submit", e);
+      }
     }
 
-    return newInvoice;
+    const mapped = mapDBToInvoice(data[0]);
+    if (invoiceData.items) {
+      mapped.items = invoiceData.items;
+    }
+    return mapped;
   },
 
-  verifyInvoice: async (id, managerName = 'Marcus Brody') => {
-    await delay(450);
-    const invoices = getStorageData(INVOICES_KEY, INITIAL_INVOICES);
+  verifyInvoice: async (id, managerName = 'Eleanor Vance') => {
     const today = new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-    let targetPoId = null;
+    const { data: invoices, error: invError } = await supabase
+      .from('invoices')
+      .update({
+        status: 'Verified'
+      })
+      .eq('id', id)
+      .select('*');
 
-    const updatedInvoices = invoices.map(inv => {
-      if (inv.id === id) {
-        targetPoId = inv.poId;
-        return {
-          ...inv,
-          status: 'Verified',
-          isDuplicateRisk: false, // cleared on verification
-          verifiedAt: today,
-          verifiedBy: managerName
-        };
-      }
-      return inv;
-    });
-
-    setStorageData(INVOICES_KEY, updatedInvoices);
+    if (invError) throw invError;
+    const inv = invoices[0];
 
     // Update PO status to "Invoice Verified"
-    if (targetPoId) {
-      const orders = getStorageData('procure_orders_db', []);
-      const dateOnly = new Date().toISOString().split('T')[0];
-      const updatedOrders = orders.map(po => {
-        if (po.id === targetPoId) {
-          const history = po.history || [];
-          return {
-            ...po,
+    if (inv.po_id) {
+      try {
+        const po = await orderApi.getOrderById(inv.po_id);
+        const history = po.history || [];
+        const updatedHistory = [...history, { status: 'Invoice Verified', timestamp: today, actor: `${managerName} (Manager)` }];
+
+        await supabase
+          .from('purchase_orders')
+          .update({
             status: 'Invoice Verified',
-            invoiceVerifiedDate: dateOnly,
-            history: [...history, { status: 'Invoice Verified', timestamp: today, actor: `${managerName} (Manager)` }]
-          };
-        }
-        return po;
-      });
-      setStorageData('procure_orders_db', updatedOrders);
+            history: updatedHistory
+          })
+          .eq('id', inv.po_id);
+      } catch (e) {
+        console.error("Failed to update PO status on invoice verify", e);
+      }
     }
 
-    return updatedInvoices.find(i => i.id === id);
+    return mapDBToInvoice(inv);
   },
 
-  rejectInvoice: async (id, reason, managerName = 'Marcus Brody') => {
-    await delay(450);
-    const invoices = getStorageData(INVOICES_KEY, INITIAL_INVOICES);
+  rejectInvoice: async (id, reason, managerName = 'Eleanor Vance') => {
+    const { data, error } = await supabase
+      .from('invoices')
+      .update({
+        status: 'Rejected',
+        rejection_reason: reason
+      })
+      .eq('id', id)
+      .select('*');
 
-    const updatedInvoices = invoices.map(inv => {
-      if (inv.id === id) {
-        return {
-          ...inv,
-          status: 'Rejected',
-          rejectionReason: reason
-        };
-      }
-      return inv;
-    });
-
-    setStorageData(INVOICES_KEY, updatedInvoices);
-    return updatedInvoices.find(i => i.id === id);
+    if (error) throw error;
+    return mapDBToInvoice(data[0]);
   }
 };

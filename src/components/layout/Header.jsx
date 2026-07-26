@@ -134,11 +134,19 @@ export const Header = ({ onMobileMenuToggle }) => {
             onClick={() => setShowProfileMenu(!showProfileMenu)}
             className="flex items-center gap-2.5 p-1.5 pr-3 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200/80 transition-smooth"
           >
-            <img
-              src={user?.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80"}
-              alt={user?.name}
-              className="w-8 h-8 rounded-xl object-cover ring-2 ring-primary-600/20"
-            />
+            {user?.avatar ? (
+              <img
+                src={user.avatar}
+                alt={user.name}
+                className="w-8 h-8 rounded-xl object-cover ring-2 ring-primary-600/20"
+              />
+            ) : (
+              <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-extrabold text-sm text-white shrink-0 ring-2 ${
+                user?.role === 'manager' ? 'bg-primary-600 ring-primary-600/20' : 'bg-emerald-600 ring-emerald-600/20'
+              }`}>
+                {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
+              </div>
+            )}
             <div className="text-left hidden md:block">
               <p className="text-xs font-bold text-slate-900 leading-tight">{user?.name}</p>
               <span className={`text-[10px] font-bold uppercase tracking-wider ${

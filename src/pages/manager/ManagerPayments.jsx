@@ -7,7 +7,7 @@ import { StatusBadge } from '../../components/common/StatusBadge';
 import { Modal } from '../../components/common/Modal';
 import { useToast } from '../../context/ToastContext';
 import { 
-  CreditCard, DollarSign, Wallet, CheckCircle, Clock, ShieldCheck, ArrowRight 
+  CreditCard, IndianRupee, Wallet, CheckCircle, Clock, ShieldCheck, ArrowRight 
 } from 'lucide-react';
 
 export const ManagerPayments = () => {
@@ -16,6 +16,8 @@ export const ManagerPayments = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [selectedReceipt, setSelectedReceipt] = useState(null);
+  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
 
   // Payment Processing Modal
   const [selectedInvoice, setSelectedInvoice] = useState(null);
@@ -37,8 +39,8 @@ export const ManagerPayments = () => {
         paymentApi.getPayments()
       ]);
 
-      // Verified or partially paid invoices ready for payment
-      const ready = allInvoices.filter(i => i.status === 'Verified' || i.status === 'Partially Paid');
+      // Submitted or partially paid invoices ready for payment
+      const ready = allInvoices.filter(i => i.status === 'Submitted' || i.status === 'Partially Paid');
       setInvoicesReady(ready);
       setPaymentsList(payments);
     } catch (err) {
@@ -82,7 +84,7 @@ export const ManagerPayments = () => {
         notes: paymentForm.notes
       });
 
-      showToast(`Payment of $${Number(paymentForm.amountToPay).toLocaleString()} processed successfully!`, 'success');
+      showToast(`Payment of ₹${Number(paymentForm.amountToPay).toLocaleString('en-IN')} processed successfully!`, 'success');
       setIsProcessModalOpen(false);
       setSelectedInvoice(null);
       loadData();
@@ -137,11 +139,11 @@ export const ManagerPayments = () => {
                 <div className="p-2.5 bg-white rounded-xl border border-slate-100 flex items-center justify-between text-xs">
                   <div>
                     <span className="text-slate-400 block text-[10px]">Remaining Balance:</span>
-                    <span className="font-extrabold text-slate-900">${inv.remainingBalance.toLocaleString()}</span>
+                    <span className="font-extrabold text-slate-900">₹{inv.remainingBalance.toLocaleString('en-IN')}</span>
                   </div>
                   <div className="text-right">
                     <span className="text-slate-400 block text-[10px]">Total Amount:</span>
-                    <span className="font-bold text-slate-500">${inv.totalAmount.toLocaleString()}</span>
+                    <span className="font-bold text-slate-500">₹{inv.totalAmount.toLocaleString('en-IN')}</span>
                   </div>
                 </div>
 
@@ -149,7 +151,7 @@ export const ManagerPayments = () => {
                   onClick={() => openProcessModal(inv)}
                   className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-600/20 transition-smooth flex items-center justify-center gap-1.5"
                 >
-                  <DollarSign className="w-4 h-4" />
+                  <IndianRupee className="w-4 h-4" />
                   <span>Process Payment</span>
                 </button>
               </div>
@@ -185,7 +187,8 @@ export const ManagerPayments = () => {
                     <th className="py-3.5 px-6">Disbursed Amount</th>
                     <th className="py-3.5 px-6">Running Balance</th>
                     <th className="py-3.5 px-6">Status</th>
-                    <th className="py-3.5 px-6">Vendor Ack?</th>
+                    <th className="py-3.5 px-6">Receipt</th>
+                    <th className="py-3.5 px-6 text-right">Vendor Ack?</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700">
@@ -200,12 +203,20 @@ export const ManagerPayments = () => {
                         <div className="text-slate-500">{pmt.vendorName}</div>
                       </td>
                       <td className="py-4 px-6 font-semibold">{pmt.paymentMethod || 'Wire / ACH'}</td>
-                      <td className="py-4 px-6 font-bold text-emerald-600">${pmt.amountPaid.toLocaleString()}</td>
-                      <td className="py-4 px-6 font-bold text-slate-800">${pmt.runningBalance.toLocaleString()}</td>
+                      <td className="py-4 px-6 font-bold text-emerald-600">₹{pmt.amountPaid.toLocaleString('en-IN')}</td>
+                      <td className="py-4 px-6 font-bold text-slate-800">₹{pmt.runningBalance.toLocaleString('en-IN')}</td>
                       <td className="py-4 px-6">
                         <StatusBadge status={pmt.status} />
                       </td>
                       <td className="py-4 px-6">
+                        <button
+                          onClick={() => { setSelectedReceipt(pmt); setIsReceiptModalOpen(true); }}
+                          className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold border border-emerald-200 rounded-lg text-[10px]"
+                        >
+                          View Receipt
+                        </button>
+                      </td>
+                      <td className="py-4 px-6 text-right">
                         {pmt.vendorApproved ? (
                           <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 text-[10px]">
                             ✓ Approved
@@ -236,31 +247,20 @@ export const ManagerPayments = () => {
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500 font-semibold">Total Invoice Claim:</span>
-                <span className="font-bold text-slate-900">${selectedInvoice.totalAmount.toLocaleString()} USD</span>
+                <span className="font-bold text-slate-900">₹{selectedInvoice.totalAmount.toLocaleString('en-IN')} INR</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500 font-semibold">Remaining Unpaid Balance:</span>
-                <span className="font-bold text-rose-600">${selectedInvoice.remainingBalance.toLocaleString()} USD</span>
+                <span className="font-bold text-rose-600">₹{selectedInvoice.remainingBalance.toLocaleString('en-IN')} INR</span>
               </div>
             </div>
 
-            <div>
-              <label className="block font-semibold text-slate-700 mb-1">
-                Disbursement Amount ($) *
-              </label>
-              <input
-                type="number"
-                required
-                min="1"
-                max={selectedInvoice.remainingBalance}
-                step="0.01"
-                value={paymentForm.amountToPay}
-                onChange={(e) => setPaymentForm({ ...paymentForm, amountToPay: e.target.value })}
-                className="w-full p-2.5 bg-slate-50 border rounded-xl font-bold text-sm text-slate-900"
-              />
-              <p className="text-[10px] text-slate-500 mt-1">
-                Supports partial/installment payments. Max payable: ${selectedInvoice.remainingBalance.toLocaleString()}
-              </p>
+            <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl flex justify-between items-center">
+              <div>
+                <span className="text-slate-500 font-semibold block text-[10px] uppercase">Amount to Disburse:</span>
+                <span className="text-xs text-slate-400">Single full payment disbursement</span>
+              </div>
+              <span className="font-extrabold text-emerald-700 text-base">₹{selectedInvoice.remainingBalance.toLocaleString('en-IN')} INR</span>
             </div>
 
             <div>
@@ -297,6 +297,67 @@ export const ManagerPayments = () => {
               </button>
             </div>
           </form>
+        )}
+      </Modal>
+
+      {/* Receipt Modal */}
+      <Modal isOpen={isReceiptModalOpen} onClose={() => { setIsReceiptModalOpen(false); setSelectedReceipt(null); }} title="Official Payment Receipt">
+        {selectedReceipt && (
+          <div className="space-y-4 text-xs p-1">
+            <div className="text-center pb-4 border-b border-slate-200">
+              <div className="inline-flex p-3 rounded-full bg-emerald-500/10 text-emerald-600 mb-2">
+                <CheckCircle className="w-8 h-8" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900">Payment Cleared Successfully</h3>
+              <p className="text-xs text-slate-400 mt-0.5">UTR / Ref: {selectedReceipt.referenceNumber || 'N/A'}</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
+              <div>
+                <span className="text-slate-400 font-semibold block text-[10px] uppercase">Payer / Disbursed By:</span>
+                <span className="font-bold text-slate-800">ProcureHub Management</span>
+              </div>
+              <div>
+                <span className="text-slate-400 font-semibold block text-[10px] uppercase">Payee / Vendor:</span>
+                <span className="font-bold text-slate-800">{selectedReceipt.vendorName}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 font-semibold block text-[10px] uppercase">Disbursed Amount:</span>
+                <span className="font-extrabold text-emerald-600 text-sm">₹{selectedReceipt.amountPaid?.toLocaleString('en-IN')} INR</span>
+              </div>
+              <div>
+                <span className="text-slate-400 font-semibold block text-[10px] uppercase">Transaction Date:</span>
+                <span className="font-bold text-slate-800">{selectedReceipt.paymentDate}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 font-semibold block text-[10px] uppercase">Ref Invoice #:</span>
+                <span className="font-bold text-slate-800">{selectedReceipt.invoiceNumber}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 font-semibold block text-[10px] uppercase">Payment Method:</span>
+                <span className="font-bold text-slate-800">{selectedReceipt.paymentMethod}</span>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-white border border-slate-200/80 rounded-xl space-y-1.5">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Invoice Total Value:</span>
+                <span className="font-bold">₹{selectedReceipt.invoiceTotal?.toLocaleString('en-IN')} INR</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Amount Paid:</span>
+                <span className="font-bold text-emerald-600">₹{selectedReceipt.amountPaid?.toLocaleString('en-IN')} INR</span>
+              </div>
+              <div className="flex justify-between pt-1 border-t">
+                <span className="text-slate-500 font-semibold">Remaining Ledger Balance:</span>
+                <span className="font-bold">₹{selectedReceipt.runningBalance?.toLocaleString('en-IN')} INR</span>
+              </div>
+            </div>
+
+            <p className="text-center text-[10px] text-slate-400 italic">
+              This receipt is automatically generated and digitally authenticated.
+            </p>
+          </div>
         )}
       </Modal>
     </div>

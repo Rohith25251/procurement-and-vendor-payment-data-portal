@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { invoiceApi } from '../../api/invoiceApi';
 import { SearchFilterBar } from '../../components/common/SearchFilterBar';
 import { TableSkeleton } from '../../components/common/LoadingSkeleton';
@@ -11,6 +12,7 @@ import {
 } from 'lucide-react';
 
 export const ManagerInvoices = () => {
+  const navigate = useNavigate();
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -61,96 +63,102 @@ export const ManagerInvoices = () => {
   };
 
   const handleDownloadPDF = (invoice) => {
-    // Generate synthetic printable PDF document
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      showToast('Please allow popups to download invoice PDF', 'warning');
-      return;
+    // 1. Create a styled clone of the invoice mockup off-screen
+    const element = document.createElement('div');
+    element.style.padding = '30px';
+    element.style.width = '750px';
+    element.style.background = 'white';
+    element.style.fontFamily = 'Arial, sans-serif';
+    element.style.color = '#1e293b';
+    element.style.lineHeight = '1.5';
+
+    element.innerHTML = `
+      <div style="display: flex; justify-content: space-between; border-bottom: 2px solid #0369a3; padding-bottom: 20px; margin-bottom: 30px;">
+        <div>
+          <h3 style="font-size: 24px; font-weight: bold; color: #0369a3; margin: 0;">ProcureHub Tax Invoice</h3>
+          <p style="margin: 5px 0 0 0; font-size: 13px;">Invoice #: <strong>${invoice.invoiceNumber}</strong></p>
+          <p style="margin: 3px 0 0 0; font-size: 13px;">PO Reference #: <strong>${invoice.poNumber}</strong></p>
+        </div>
+        <div style="text-align: right;">
+          <span style="font-size: 10px; text-transform: uppercase; font-weight: bold; color: #94a3b8;">Status:</span>
+          <span style="display: inline-block; font-weight: bold; color: #0369a3; margin-left: 5px; font-size: 13px;">${invoice.status}</span>
+          <p style="margin: 8px 0 0 0; font-size: 13px;">Date: <strong>${invoice.issueDate || invoice.submittedAt || ''}</strong></p>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; background: #f8fafc; padding: 20px; border-radius: 12px; margin-bottom: 30px;">
+        <div>
+          <strong style="color: #94a3b8; text-transform: uppercase; font-size: 10px;">Billed To:</strong>
+          <p style="font-weight: bold; color: #334155; margin: 5px 0 0 0; font-size: 13px;">ProcureHub Enterprise Portal</p>
+          <p style="color: #64748b; margin: 2px 0 0 0; font-size: 12px;">Strategic Operations Center</p>
+          <p style="color: #64748b; margin: 2px 0 0 0; font-size: 12px;">Chicago, IL 60607</p>
+        </div>
+        <div>
+          <strong style="color: #94a3b8; text-transform: uppercase; font-size: 10px;">Vendor Details:</strong>
+          <p style="font-weight: bold; color: #334155; margin: 5px 0 0 0; font-size: 13px;">${invoice.vendorName}</p>
+          <p style="color: #64748b; margin: 2px 0 0 0; font-size: 12px;">Submission Date: ${invoice.submittedAt || invoice.issueDate}</p>
+        </div>
+      </div>
+
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+        <thead>
+          <tr style="background: #0369a3; color: white; font-weight: bold; font-size: 12px;">
+            <th style="padding: 10px; text-align: left;">Description</th>
+            <th style="padding: 10px; text-align: center;">Qty</th>
+            <th style="padding: 10px; text-align: right;">Unit Price (₹)</th>
+            <th style="padding: 10px; text-align: right;">Total (₹)</th>
+          </tr>
+        </thead>
+        <tbody style="font-size: 13px; color: #475569;">
+          ${(invoice.items || []).map(i => `
+            <tr style="border-bottom: 1px solid #e2e8f0;">
+              <td style="padding: 10px; color: #0f172a; font-weight: bold;">${i.description || i.name}</td>
+              <td style="padding: 10px; text-align: center;">${i.quantity}</td>
+              <td style="padding: 10px; text-align: right;">₹${Number(i.unitPrice).toLocaleString('en-IN')}</td>
+              <td style="padding: 10px; text-align: right; color: #0f172a; font-weight: bold;">₹${Number(i.total || (i.quantity * i.unitPrice)).toLocaleString('en-IN')}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+
+      <div style="text-align: right; font-size: 18px; font-weight: bold; color: #0369a3; margin-bottom: 30px;">
+        Total Claim Amount: ₹${invoice.totalAmount.toLocaleString('en-IN')} INR
+      </div>
+
+      <div style="text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 20px;">
+        Generated via ProcureHub B2B Data Portal • Document Authenticated
+      </div>
+    `;
+
+    document.body.appendChild(element);
+
+    const opt = {
+      margin:       0.5,
+      filename:     `Invoice_${invoice.invoiceNumber}.pdf`,
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  { scale: 2, useCORS: true },
+      jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+    };
+
+    const loadAndPrint = () => {
+      window.html2pdf().from(element).set(opt).save().then(() => {
+        document.body.removeChild(element);
+        showToast(`Invoice ${invoice.invoiceNumber}.pdf downloaded successfully.`, 'success');
+      }).catch(err => {
+        console.error("PDF generation failed", err);
+        document.body.removeChild(element);
+        showToast("PDF generation failed", "error");
+      });
+    };
+
+    if (window.html2pdf) {
+      loadAndPrint();
+    } else {
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+      script.onload = loadAndPrint;
+      document.body.appendChild(script);
     }
-
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Invoice PDF - ${invoice.invoiceNumber}</title>
-          <style>
-            body { font-family: Arial, sans-serif; padding: 40px; color: #1e293b; line-height: 1.5; }
-            .header { display: flex; justify-content: space-between; border-b: 2px solid #0369a3; padding-bottom: 20px; margin-bottom: 30px; }
-            .title { font-size: 24px; font-weight: bold; color: #0369a3; }
-            .meta { margin-bottom: 30px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; background: #f8fafc; padding: 20px; border-radius: 8px; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
-            th { background: #0369a3; color: white; text-align: left; padding: 10px; font-size: 12px; }
-            td { padding: 10px; border-bottom: 1px solid #e2e8f0; font-size: 13px; }
-            .total { text-align: right; font-size: 18px; font-weight: bold; color: #0369a3; }
-            .footer { font-size: 11px; color: #94a3b8; text-align: center; margin-top: 50px; border-t: 1px solid #e2e8f0; padding-top: 20px; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <div>
-              <div class="title">ProcureHub Tax Invoice</div>
-              <p>Invoice #: <strong>${invoice.invoiceNumber}</strong></p>
-              <p>PO Reference #: <strong>${invoice.poNumber}</strong></p>
-            </div>
-            <div style="text-align: right;">
-              <h3>${invoice.vendorName}</h3>
-              <p>Date: ${invoice.issueDate}</p>
-              <p>Status: ${invoice.status}</p>
-            </div>
-          </div>
-
-          <div class="meta">
-            <div>
-              <strong>Billed To:</strong><br/>
-              ProcureHub Enterprise Portal<br/>
-              Strategic Operations Center<br/>
-              Chicago, IL 60607
-            </div>
-            <div>
-              <strong>Vendor Details:</strong><br/>
-              ${invoice.vendorName}<br/>
-              Status: ${invoice.status}<br/>
-              Submission Date: ${invoice.submittedAt || invoice.issueDate}
-            </div>
-          </div>
-
-          <table>
-            <thead>
-              <tr>
-                <th>Description</th>
-                <th style="text-align: center;">Qty</th>
-                <th style="text-align: right;">Unit Price ($)</th>
-                <th style="text-align: right;">Total ($)</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${(invoice.items || []).map(i => `
-                <tr>
-                  <td>${i.description}</td>
-                  <td style="text-align: center;">${i.quantity}</td>
-                  <td style="text-align: right;">$${Number(i.unitPrice).toLocaleString()}</td>
-                  <td style="text-align: right;">$${Number(i.total).toLocaleString()}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-
-          <div class="total">
-            Total Claim Amount: $${Number(invoice.totalAmount).toLocaleString()} USD
-          </div>
-
-          <div class="footer">
-            Generated via ProcureHub B2B Data Portal • Document Authenticated
-          </div>
-
-          <script>
-            window.onload = function() { window.print(); }
-          </script>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
-    showToast(`Generating printable invoice PDF for ${invoice.invoiceNumber}`, 'info');
   };
 
   const filteredInvoices = invoices.filter(inv => {
@@ -224,7 +232,7 @@ export const ManagerInvoices = () => {
                     </td>
                     <td className="py-4 px-6 font-semibold">{inv.vendorName}</td>
                     <td className="py-4 px-6 text-slate-500">{inv.issueDate}</td>
-                    <td className="py-4 px-6 font-bold text-slate-900">${inv.totalAmount.toLocaleString()}</td>
+                    <td className="py-4 px-6 font-bold text-slate-900">₹{inv.totalAmount.toLocaleString('en-IN')}</td>
                     <td className="py-4 px-6">
                       {inv.isDuplicateRisk ? (
                         <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-100 px-2.5 py-0.5 rounded-full border border-amber-200">
@@ -254,22 +262,13 @@ export const ManagerInvoices = () => {
                           <Eye className="w-4 h-4" />
                         </button>
                         {inv.status === 'Submitted' && (
-                          <>
-                            <button
-                              onClick={() => handleVerify(inv.id)}
-                              className="px-2.5 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-bold rounded-lg text-xs flex items-center gap-1 transition-colors"
-                            >
-                              <ShieldCheck className="w-3.5 h-3.5" />
-                              <span>Verify</span>
-                            </button>
-                            <button
-                              onClick={() => setRejectDialog({ open: true, invoiceId: inv.id })}
-                              className="px-2.5 py-1 bg-rose-100 hover:bg-rose-200 text-rose-800 font-bold rounded-lg text-xs flex items-center gap-1 transition-colors"
-                            >
-                              <XCircle className="w-3.5 h-3.5" />
-                              <span>Reject</span>
-                            </button>
-                          </>
+                          <button
+                            onClick={() => navigate('/manager/payments')}
+                            className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs flex items-center gap-1 transition-colors shadow-xs"
+                          >
+                            <ShieldCheck className="w-3.5 h-3.5" />
+                            <span>Proceed to Pay</span>
+                          </button>
                         )}
                       </div>
                     </td>
@@ -282,56 +281,73 @@ export const ManagerInvoices = () => {
       )}
 
       {/* Invoice Preview Modal */}
-      <Modal isOpen={isPreviewOpen} onClose={() => setIsPreviewOpen(false)} title={`Invoice Details: ${selectedInvoice?.invoiceNumber}`}>
+      <Modal isOpen={isPreviewOpen} onClose={() => setIsPreviewOpen(false)} title={`Invoice Details: ${selectedInvoice?.invoiceNumber}`} maxWidth="max-w-3xl">
         {selectedInvoice && (
-          <div className="space-y-4 text-xs">
+          <div className="space-y-6 text-xs">
             {selectedInvoice.isDuplicateRisk && (
               <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 font-semibold">
                 ⚠️ Warning: {selectedInvoice.duplicateWarningReason}
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl">
-              <div>
-                <p className="text-slate-400 font-semibold">Vendor:</p>
-                <p className="font-bold text-slate-900">{selectedInvoice.vendorName}</p>
+            {/* Real paper-styled Invoice Mockup */}
+            <div className="bg-white p-6 sm:p-8 border border-slate-200 rounded-2xl shadow-sm max-w-2xl mx-auto space-y-6 font-sans">
+              <div className="flex justify-between items-start pb-5 border-b-2 border-primary-600">
+                <div>
+                  <h3 className="text-xl font-extrabold text-primary-700">ProcureHub Tax Invoice</h3>
+                  <p className="text-slate-500 mt-1">Invoice #: <strong className="text-slate-900">{selectedInvoice.invoiceNumber}</strong></p>
+                  <p className="text-slate-500">PO Reference #: <strong className="text-slate-900">{selectedInvoice.poNumber}</strong></p>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Status</span>
+                  <div className="mt-1"><StatusBadge status={selectedInvoice.status} /></div>
+                  <p className="text-slate-500 mt-2">Date: <strong className="text-slate-900">{selectedInvoice.issueDate || selectedInvoice.submittedAt || ''}</strong></p>
+                </div>
               </div>
-              <div>
-                <p className="text-slate-400 font-semibold">Associated PO:</p>
-                <p className="font-bold text-slate-900">{selectedInvoice.poNumber}</p>
-              </div>
-              <div>
-                <p className="text-slate-400 font-semibold">Invoice Total:</p>
-                <p className="font-bold text-primary-600 text-sm">${selectedInvoice.totalAmount.toLocaleString()} USD</p>
-              </div>
-              <div>
-                <p className="text-slate-400 font-semibold">Submission Date:</p>
-                <p className="font-bold text-slate-900">{selectedInvoice.submittedAt}</p>
-              </div>
-            </div>
 
-            {/* Line items */}
-            <div>
-              <h4 className="font-bold text-slate-800 mb-2">Claimed Line Items</h4>
-              <div className="border rounded-xl overflow-hidden">
-                <table className="w-full text-left">
-                  <thead className="bg-slate-100 text-slate-600 font-bold">
-                    <tr>
-                      <th className="p-2">Description</th>
-                      <th className="p-2 text-center">Qty</th>
-                      <th className="p-2 text-right">Amount</th>
+              <div className="grid grid-cols-2 gap-6 p-4 bg-slate-50 rounded-xl">
+                <div>
+                  <strong className="text-slate-400 uppercase tracking-wider text-[10px]">Billed To:</strong>
+                  <p className="font-bold text-slate-800 mt-1">ProcureHub Enterprise Portal</p>
+                  <p className="text-slate-500">Strategic Operations Center</p>
+                  <p className="text-slate-500">Chicago, IL 60607</p>
+                </div>
+                <div>
+                  <strong className="text-slate-400 uppercase tracking-wider text-[10px]">Vendor Details:</strong>
+                  <p className="font-bold text-slate-800 mt-1">{selectedInvoice.vendorName}</p>
+                  <p className="text-slate-500">Submission Date: {selectedInvoice.submittedAt || selectedInvoice.issueDate}</p>
+                </div>
+              </div>
+
+              <div className="border border-slate-100 rounded-xl overflow-hidden">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-primary-600 text-white font-extrabold text-[11px]">
+                      <th className="p-3">Description</th>
+                      <th className="p-3 text-center">Qty</th>
+                      <th className="p-3 text-right">Unit Price (₹)</th>
+                      <th className="p-3 text-right">Total (₹)</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y">
+                  <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
                     {selectedInvoice.items?.map((item, idx) => (
-                      <tr key={idx}>
-                        <td className="p-2">{item.description}</td>
-                        <td className="p-2 text-center">{item.quantity}</td>
-                        <td className="p-2 text-right font-bold">${item.total.toLocaleString()}</td>
+                      <tr key={idx} className="hover:bg-slate-50/50">
+                        <td className="p-3 text-slate-900">{item.description || item.name}</td>
+                        <td className="p-3 text-center">{item.quantity}</td>
+                        <td className="p-3 text-right">₹{Number(item.unitPrice).toLocaleString('en-IN')}</td>
+                        <td className="p-3 text-right text-slate-900">₹{Number(item.total || (item.quantity * item.unitPrice)).toLocaleString('en-IN')}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+              </div>
+
+              <div className="text-right text-lg font-extrabold text-primary-700">
+                Total Claim Amount: ₹{selectedInvoice.totalAmount.toLocaleString('en-IN')} INR
+              </div>
+
+              <div className="text-center text-[10px] text-slate-400 pt-4 border-t border-slate-100">
+                Generated via ProcureHub B2B Data Portal • Document Authenticated
               </div>
             </div>
 
@@ -339,14 +355,14 @@ export const ManagerInvoices = () => {
             <div className="flex justify-between items-center pt-3 border-t">
               <button
                 onClick={() => handleDownloadPDF(selectedInvoice)}
-                className="px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white font-bold rounded-xl flex items-center gap-1.5"
+                className="px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white font-bold rounded-xl flex items-center gap-1.5 shadow-sm"
               >
-                <Printer className="w-4 h-4" /> Download Printable PDF
+                <Printer className="w-4 h-4" /> Download Printable Copy
               </button>
 
               <button
                 onClick={() => setIsPreviewOpen(false)}
-                className="px-4 py-2 bg-slate-200 text-slate-800 font-bold rounded-xl"
+                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold rounded-xl transition-colors"
               >
                 Close
               </button>

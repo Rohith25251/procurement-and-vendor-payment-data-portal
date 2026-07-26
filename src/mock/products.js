@@ -6,7 +6,7 @@ export const INITIAL_PRODUCTS = [
     sku: "SKU-APX-001",
     category: "Hardware & Raw Materials",
     unitPrice: 50.00,
-    currency: "USD",
+    currency: "INR",
     stockStatus: "In Stock",
     leadTimeDays: 3,
     description: "Precision engineered structural alloy brackets designed for heavy load industrial machinery."
@@ -18,7 +18,7 @@ export const INITIAL_PRODUCTS = [
     sku: "SKU-APX-002",
     category: "Hardware & Raw Materials",
     unitPrice: 50.00,
-    currency: "USD",
+    currency: "INR",
     stockStatus: "In Stock",
     leadTimeDays: 2,
     description: "Corrosion resistant grade 316 stainless steel bolt & nut fasteners, box of 100 units."
@@ -30,7 +30,7 @@ export const INITIAL_PRODUCTS = [
     sku: "SKU-APX-003",
     category: "Hardware & Raw Materials",
     unitPrice: 235.00,
-    currency: "USD",
+    currency: "INR",
     stockStatus: "Low Stock",
     leadTimeDays: 7,
     description: "Custom CNC milled aircraft-grade aluminum enclosure housings for industrial sensors."
@@ -42,7 +42,7 @@ export const INITIAL_PRODUCTS = [
     sku: "SKU-CYB-101",
     category: "IT & Software Services",
     unitPrice: 20000.00,
-    currency: "USD",
+    currency: "INR",
     stockStatus: "Available",
     leadTimeDays: 1,
     description: "Full spectrum cloud cost reduction, architecture review, and auto-scaling optimization sprint."
@@ -54,7 +54,7 @@ export const INITIAL_PRODUCTS = [
     sku: "SKU-CYB-102",
     category: "IT & Software Services",
     unitPrice: 12000.00,
-    currency: "USD",
+    currency: "INR",
     stockStatus: "Available",
     leadTimeDays: 5,
     description: "End-to-end cybersecurity vulnerability assessment, penetration test, and SOC2 compliance package."
@@ -66,7 +66,7 @@ export const INITIAL_PRODUCTS = [
     sku: "SKU-CYB-103",
     category: "IT & Software Services",
     unitPrice: 330.00,
-    currency: "USD",
+    currency: "INR",
     stockStatus: "Instant Access",
     leadTimeDays: 0,
     description: "Annual seat license for automated CI/CD pipeline deployment management toolchain."
@@ -78,7 +78,7 @@ export const INITIAL_PRODUCTS = [
     sku: "SKU-VNG-201",
     category: "Packaging & Materials",
     unitPrice: 2.20,
-    currency: "USD",
+    currency: "INR",
     stockStatus: "In Stock",
     leadTimeDays: 4,
     description: "Heavy-duty eco-friendly corrugated packing boxes with custom branding graphics."
@@ -90,7 +90,7 @@ export const INITIAL_PRODUCTS = [
     sku: "SKU-VNG-202",
     category: "Packaging & Materials",
     unitPrice: 8.00,
-    currency: "USD",
+    currency: "INR",
     stockStatus: "In Stock",
     leadTimeDays: 2,
     description: "Shock absorbing honeycomb thermal insulation pads for fragile logistics transport."
@@ -102,7 +102,7 @@ export const INITIAL_PRODUCTS = [
     sku: "SKU-BIO-301",
     category: "Facilities & Operations",
     unitPrice: 6800.00,
-    currency: "USD",
+    currency: "INR",
     stockStatus: "On Demand",
     leadTimeDays: 3,
     description: "Certified bio-hazard containment, neutralization, and EPA certified disposal service."

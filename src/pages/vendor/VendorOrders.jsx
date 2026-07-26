@@ -8,7 +8,7 @@ import { Modal } from '../../components/common/Modal';
 import { OrderStatusTracker } from '../../components/stepper/OrderStatusTracker';
 import { useToast } from '../../context/ToastContext';
 import { 
-  PackageCheck, CheckCheck, HelpCircle, Truck, Eye, FileText, Send 
+  PackageCheck, Truck, Eye, FileText 
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -23,8 +23,6 @@ export const VendorOrders = () => {
   // Modals
   const [selectedPO, setSelectedPO] = useState(null);
   const [isTrackModalOpen, setIsTrackModalOpen] = useState(false);
-  const [queryModal, setQueryModal] = useState({ open: false, poId: null });
-  const [queryComment, setQueryComment] = useState('');
 
   const { showToast } = useToast();
 
@@ -34,7 +32,7 @@ export const VendorOrders = () => {
       const allOrders = await orderApi.getOrders();
       // Filter for vendor
       const filtered = allOrders.filter(
-        o => o.vendorId === user?.vendorId || o.vendorName.includes(user?.name) || o.vendorId === 'vnd_apex_01'
+        o => o.vendorId === user?.vendorId || o.vendorName.includes(user?.name)
       );
       setOrders(filtered);
     } catch (err) {
@@ -48,38 +46,20 @@ export const VendorOrders = () => {
     loadOrders();
   }, [user]);
 
-  const handleAcceptPO = async (id) => {
+  const handleGenerateInvoice = async (id) => {
     try {
-      await orderApi.acceptOrder(id, user?.name);
-      showToast('Purchase Order accepted. Ready for fulfillment.', 'success');
+      await orderApi.generateInvoiceForOrder(id, user?.name);
+      showToast('Invoice generated automatically and sent to manager.', 'success');
       loadOrders();
     } catch (err) {
-      showToast('Failed to accept order', 'error');
+      showToast('Failed to generate invoice', 'error');
     }
   };
 
-  const handleRaiseQuerySubmit = async (e) => {
-    e.preventDefault();
-    if (!queryComment.trim()) {
-      showToast('Please type your query comment', 'warning');
-      return;
-    }
-
+  const handleMarkOutForDelivery = async (id) => {
     try {
-      await orderApi.raiseQuery(queryModal.poId, queryComment, user?.name);
-      showToast('Query submitted to manager. Status updated to Query Raised.', 'info');
-      setQueryModal({ open: false, poId: null });
-      setQueryComment('');
-      loadOrders();
-    } catch (err) {
-      showToast('Failed to raise query', 'error');
-    }
-  };
-
-  const handleMarkDelivered = async (id) => {
-    try {
-      await orderApi.markDelivered(id, user?.name);
-      showToast('Order status updated to Delivered. You can now submit an invoice!', 'success');
+      await orderApi.markOutForDelivery(id, user?.name);
+      showToast('Order status updated to Out for Delivery!', 'success');
       loadOrders();
     } catch (err) {
       showToast('Failed to update status', 'error');
@@ -111,7 +91,7 @@ export const VendorOrders = () => {
         placeholder="Search by PO number..."
         statusFilter={statusFilter}
         onStatusChange={setStatusFilter}
-        statusOptions={['Sent to Vendor', 'Accepted', 'Query Raised', 'Delivered', 'Invoice Submitted', 'Paid']}
+        statusOptions={['Invoice Requested', 'Invoice Generated', 'Paid', 'Out for Delivery', 'Delivered']}
       />
 
       {/* Orders Table */}
@@ -134,10 +114,17 @@ export const VendorOrders = () => {
               <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700">
                 {filteredOrders.map((po) => (
                   <tr key={po.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-4 px-6 font-bold text-slate-900">{po.poNumber}</td>
+                    <td className="py-4 px-6">
+                      <button
+                        onClick={() => { setSelectedPO(po); setIsTrackModalOpen(true); }}
+                        className="font-bold text-emerald-600 hover:text-emerald-800 hover:underline text-left focus:outline-none"
+                      >
+                        {po.poNumber}
+                      </button>
+                    </td>
                     <td className="py-4 px-6 text-slate-500">{po.createdDate}</td>
                     <td className="py-4 px-6 font-semibold">{po.expectedDeliveryDate}</td>
-                    <td className="py-4 px-6 font-bold text-slate-900">${po.totalAmount.toLocaleString()}</td>
+                    <td className="py-4 px-6 font-bold text-slate-900">₹{po.totalAmount.toLocaleString('en-IN')}</td>
                     <td className="py-4 px-6">
                       <StatusBadge status={po.status} />
                     </td>
@@ -146,50 +133,28 @@ export const VendorOrders = () => {
                         <button
                           onClick={() => { setSelectedPO(po); setIsTrackModalOpen(true); }}
                           className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors"
-                          title="View Order Stepper"
+                          title="Inspect requested items and status"
                         >
                           <Eye className="w-4 h-4" />
                         </button>
 
-                        {/* Accept or Query for Sent to Vendor */}
-                        {(po.status === 'Sent to Vendor' || po.status === 'Approved') && (
-                          <>
-                            <button
-                              onClick={() => handleAcceptPO(po.id)}
-                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow-xs"
-                            >
-                              <CheckCheck className="w-3.5 h-3.5" />
-                              <span>Accept</span>
-                            </button>
-                            <button
-                              onClick={() => setQueryModal({ open: true, poId: po.id })}
-                              className="px-2.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold rounded-lg text-xs flex items-center gap-1"
-                            >
-                              <HelpCircle className="w-3.5 h-3.5" />
-                              <span>Raise Query</span>
-                            </button>
-                          </>
-                        )}
-
-                        {/* Mark Delivered */}
-                        {po.status === 'Accepted' && (
+                        {po.status === 'Invoice Requested' && (
                           <button
-                            onClick={() => handleMarkDelivered(po.id)}
-                            className="px-3 py-1 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow-xs"
+                            onClick={() => handleGenerateInvoice(po.id)}
+                            className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow-xs transition-colors"
                           >
-                            <Truck className="w-3.5 h-3.5" />
-                            <span>Mark Delivered</span>
+                            <FileText className="w-3.5 h-3.5" />
+                            <span>Generate Invoice</span>
                           </button>
                         )}
 
-                        {/* Submit Invoice CTA */}
-                        {po.status === 'Delivered' && (
+                        {po.status === 'Paid' && (
                           <button
-                            onClick={() => navigate('/vendor/invoices')}
-                            className="px-3 py-1 bg-teal-600 hover:bg-teal-500 text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow-xs"
+                            onClick={() => handleMarkOutForDelivery(po.id)}
+                            className="px-3 py-1 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow-xs transition-colors"
                           >
-                            <FileText className="w-3.5 h-3.5" />
-                            <span>Submit Invoice</span>
+                            <Truck className="w-3.5 h-3.5" />
+                            <span>Mark Out for Delivery</span>
                           </button>
                         )}
                       </div>
@@ -218,44 +183,17 @@ export const VendorOrders = () => {
               {selectedPO.items?.map((item, idx) => (
                 <div key={idx} className="flex justify-between py-1 border-b border-slate-200/60">
                   <span>{item.name} (x{item.quantity})</span>
-                  <span className="font-bold">${item.total.toLocaleString()} USD</span>
+                  <span className="font-bold">₹{item.total.toLocaleString('en-IN')} INR</span>
                 </div>
               ))}
               <div className="text-right font-extrabold text-slate-900 pt-1">
-                Total: ${selectedPO.totalAmount.toLocaleString()} USD
+                Total: ₹{selectedPO.totalAmount.toLocaleString('en-IN')} INR
               </div>
             </div>
           </div>
         )}
       </Modal>
 
-      {/* Raise Query Modal */}
-      <Modal isOpen={queryModal.open} onClose={() => setQueryModal({ open: false, poId: null })} title="Raise Query on Order">
-        <form onSubmit={handleRaiseQuerySubmit} className="space-y-4 text-xs">
-          <div>
-            <label className="block font-semibold text-slate-700 mb-1">
-              Specify your clarification / query for the procurement manager *
-            </label>
-            <textarea
-              rows={4}
-              required
-              value={queryComment}
-              onChange={(e) => setQueryComment(e.target.value)}
-              placeholder="e.g. Please clarify delivery SLA timeline requirements or specification tolerances..."
-              className="w-full p-3 bg-slate-50 border rounded-xl"
-            />
-          </div>
-
-          <div className="flex justify-end gap-3 pt-3 border-t">
-            <button type="button" onClick={() => setQueryModal({ open: false, poId: null })} className="px-4 py-2 font-semibold">
-              Cancel
-            </button>
-            <button type="submit" className="px-4 py-2 bg-amber-600 text-white font-bold rounded-xl flex items-center gap-1.5">
-              <Send className="w-3.5 h-3.5" /> Submit Query
-            </button>
-          </div>
-        </form>
-      </Modal>
     </div>
   );
 };

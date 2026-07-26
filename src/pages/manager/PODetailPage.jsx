@@ -58,7 +58,7 @@ export const PODetailPage = () => {
 
         <div className="text-right">
           <p className="text-xs text-slate-400 font-semibold uppercase">Total PO Value</p>
-          <p className="text-3xl font-extrabold text-primary-600">${po.totalAmount.toLocaleString()} USD</p>
+          <p className="text-3xl font-extrabold text-primary-600">₹{po.totalAmount.toLocaleString('en-IN')} INR</p>
         </div>
       </div>
 
@@ -90,8 +90,8 @@ export const PODetailPage = () => {
                   <tr key={item.id}>
                     <td className="py-3 px-4 font-semibold text-slate-900">{item.name}</td>
                     <td className="py-3 px-4 text-center">{item.quantity}</td>
-                    <td className="py-3 px-4 text-right">${item.unitPrice.toLocaleString()}</td>
-                    <td className="py-3 px-4 text-right font-bold text-slate-900">${item.total.toLocaleString()}</td>
+                    <td className="py-3 px-4 text-right">₹{item.unitPrice.toLocaleString('en-IN')}</td>
+                    <td className="py-3 px-4 text-right font-bold text-slate-900">₹{item.total.toLocaleString('en-IN')}</td>
                   </tr>
                 ))}
               </tbody>

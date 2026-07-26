@@ -24,7 +24,7 @@ export const INITIAL_NOTIFICATIONS = [
     recipientRole: "vendor",
     vendorId: "vnd_apex_01",
     title: "Partial Payment Received",
-    message: "Manager processed payment of $10,000.00 for INV-APX-9901.",
+    message: "Manager processed payment of ₹10,000.00 for INV-APX-9901.",
     timestamp: "2026-07-18 04:00 PM",
     read: false,
     type: "payment_status",

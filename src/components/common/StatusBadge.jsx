@@ -1,24 +1,18 @@
 import React from 'react';
 import { 
   Clock, CheckCircle, Send, CheckCheck, Truck, FileText, 
-  ShieldCheck, DollarSign, XCircle, HelpCircle, AlertCircle
+  ShieldCheck, IndianRupee, XCircle, HelpCircle, AlertCircle
 } from 'lucide-react';
 
 export const StatusBadge = ({ status, size = 'md' }) => {
   const configs = {
-    'Requested': { bg: 'bg-amber-50 text-amber-700 border-amber-200/80', icon: Clock },
-    'Approved': { bg: 'bg-sky-50 text-sky-700 border-sky-200/80', icon: CheckCircle },
-    'Sent to Vendor': { bg: 'bg-blue-50 text-blue-700 border-blue-200/80', icon: Send },
-    'Accepted': { bg: 'bg-indigo-50 text-indigo-700 border-indigo-200/80', icon: CheckCheck },
-    'Delivered': { bg: 'bg-purple-50 text-purple-700 border-purple-200/80', icon: Truck },
-    'Invoice Submitted': { bg: 'bg-teal-50 text-teal-700 border-teal-200/80', icon: FileText },
-    'Invoice Verified': { bg: 'bg-emerald-50 text-emerald-800 border-emerald-300', icon: ShieldCheck },
-    'Paid': { bg: 'bg-emerald-100 text-emerald-800 border-emerald-400 font-bold', icon: DollarSign },
-    'Partially Paid': { bg: 'bg-lime-50 text-lime-800 border-lime-300', icon: DollarSign },
+    'Invoice Requested': { bg: 'bg-amber-50 text-amber-700 border-amber-200/80', icon: Clock },
+    'Invoice Generated': { bg: 'bg-blue-50 text-blue-700 border-blue-200/80', icon: FileText },
+    'Paid': { bg: 'bg-emerald-100 text-emerald-800 border-emerald-400 font-bold', icon: IndianRupee },
+    'Out for Delivery': { bg: 'bg-indigo-50 text-indigo-700 border-indigo-200/80', icon: Truck },
+    'Delivered': { bg: 'bg-purple-50 text-purple-700 border-purple-200/80', icon: CheckCircle },
     'Pending': { bg: 'bg-amber-50 text-amber-700 border-amber-200/80', icon: Clock },
     'Rejected': { bg: 'bg-rose-50 text-rose-700 border-rose-200/80', icon: XCircle },
-    'Query Raised': { bg: 'bg-orange-50 text-orange-700 border-orange-200/80', icon: HelpCircle },
-    'Deactivated': { bg: 'bg-slate-100 text-slate-600 border-slate-300', icon: AlertCircle },
     'Submitted': { bg: 'bg-sky-50 text-sky-700 border-sky-200/80', icon: FileText }
   };
 

@@ -8,7 +8,7 @@ import { invoiceApi } from '../../api/invoiceApi';
 import { paymentApi } from '../../api/paymentApi';
 import { reportApi } from '../../api/reportApi';
 import { 
-  DollarSign, Clock, Users, AlertCircle, TrendingUp, ArrowRight, Activity, ShoppingCart 
+  IndianRupee, Clock, Users, AlertCircle, TrendingUp, ArrowRight, Activity, ShoppingCart 
 } from 'lucide-react';
 import { 
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell, Legend 
@@ -39,7 +39,7 @@ export const ManagerDashboard = () => {
           reportApi.getReportData()
         ]);
 
-        const pendingApprovalsCount = orders.filter(o => o.status === 'Requested').length + 
+        const pendingApprovalsCount = orders.filter(o => o.status === 'Invoice Requested').length + 
                                       invoices.filter(i => i.status === 'Submitted').length +
                                       vendors.filter(v => v.status === 'Pending').length;
 
@@ -48,7 +48,7 @@ export const ManagerDashboard = () => {
 
         const currentMonthSpend = invoices
           .filter(i => i.status === 'Verified' || i.status === 'Paid' || i.status === 'Partially Paid')
-          .reduce((acc, i) => acc + (i.paidAmount || 0), 20350);
+          .reduce((acc, i) => acc + (i.paidAmount || 0), 0);
 
         setStats({
           pendingApprovals: pendingApprovalsCount,
@@ -114,9 +114,9 @@ export const ManagerDashboard = () => {
         />
         <StatCard
           title="This Month's Spend"
-          value={`$${stats.monthlySpend.toLocaleString()}`}
+          value={`₹${stats.monthlySpend.toLocaleString('en-IN')}`}
           subtext="+12.4% vs last month"
-          icon={DollarSign}
+          icon={IndianRupee}
           trend="up"
           trendValue="12.4%"
           color="blue"
@@ -156,9 +156,9 @@ export const ManagerDashboard = () => {
               <LineChart data={chartData.trend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
                 <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#64748B' }} />
-                <YAxis tick={{ fontSize: 11, fill: '#64748B' }} tickFormatter={(val) => `$${val / 1000}k`} />
+                <YAxis tick={{ fontSize: 11, fill: '#64748B' }} tickFormatter={(val) => `₹${val / 1000}k`} />
                 <Tooltip 
-                  formatter={(value) => [`$${value.toLocaleString()}`, 'Total Spend']}
+                  formatter={(value) => [`₹${value.toLocaleString('en-IN')}`, 'Total Spend']}
                   contentStyle={{ backgroundColor: '#0F172A', color: '#fff', borderRadius: '12px', border: 'none' }}
                 />
                 <Line type="monotone" dataKey="spend" stroke="#0369A3" strokeWidth={3} dot={{ r: 5, fill: '#0369A3' }} activeDot={{ r: 8 }} />
@@ -186,13 +186,14 @@ export const ManagerDashboard = () => {
                   outerRadius={85}
                   paddingAngle={4}
                   dataKey="amount"
+                  nameKey="category"
                 >
                   {chartData.category.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={CATEGORY_COLORS[index % CATEGORY_COLORS.length]} />
                   ))}
                 </Pie>
                 <Tooltip 
-                  formatter={(value) => `$${value.toLocaleString()}`}
+                  formatter={(value) => `₹${value.toLocaleString('en-IN')}`}
                   contentStyle={{ backgroundColor: '#0F172A', color: '#fff', borderRadius: '12px' }}
                 />
                 <Legend 
@@ -241,7 +242,7 @@ export const ManagerDashboard = () => {
                   <td className="py-4 px-6 font-bold text-slate-900">{po.poNumber}</td>
                   <td className="py-4 px-6 font-semibold">{po.vendorName}</td>
                   <td className="py-4 px-6 text-slate-500">{po.category}</td>
-                  <td className="py-4 px-6 font-bold text-slate-900">${po.totalAmount.toLocaleString()}</td>
+                  <td className="py-4 px-6 font-bold text-slate-900">₹{po.totalAmount.toLocaleString('en-IN')}</td>
                   <td className="py-4 px-6">
                     <StatusBadge status={po.status} />
                   </td>

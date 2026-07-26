@@ -1,7 +1,29 @@
-import { delay, getStorageData, setStorageData } from './apiUtils';
-import { INITIAL_PURCHASE_ORDERS } from '../mock/purchaseOrders';
+import { supabase } from '../supabaseClient';
 
-const ORDERS_KEY = 'procure_orders_db';
+const mapDBToPO = (po) => {
+  if (!po) return null;
+  return {
+    id: po.id,
+    poNumber: po.po_number,
+    vendorId: po.vendor_id,
+    vendorName: po.vendor_name,
+    category: po.category,
+    status: po.status,
+    createdDate: po.created_date,
+    expectedDeliveryDate: po.expected_delivery_date,
+    paymentTerms: po.payment_terms,
+    deliveryAddress: po.delivery_address,
+    totalAmount: Number(po.total_amount) || 0,
+    currency: po.currency || 'INR',
+    notes: po.notes || '',
+    queryComment: po.query_comment || null,
+    rejectionReason: po.rejection_reason || null,
+    quotation: po.quotation || null,
+    shipmentUpdates: po.shipment_updates || [],
+    items: po.items || [],
+    history: po.history || []
+  };
+};
 
 const addHistoryEntry = (po, newStatus, actor) => {
   const history = po.history || [];
@@ -12,156 +34,258 @@ const addHistoryEntry = (po, newStatus, actor) => {
 
 export const orderApi = {
   getOrders: async () => {
-    await delay(400);
-    return getStorageData(ORDERS_KEY, INITIAL_PURCHASE_ORDERS);
+    const { data, error } = await supabase
+      .from('purchase_orders')
+      .select('*')
+      .order('po_number', { ascending: false });
+    if (error) throw error;
+    return data.map(mapDBToPO);
   },
 
   getOrderById: async (id) => {
-    await delay(300);
-    const orders = getStorageData(ORDERS_KEY, INITIAL_PURCHASE_ORDERS);
-    const po = orders.find(o => o.id === id || o.poNumber === id);
-    if (!po) throw new Error('Purchase order not found');
-    return po;
+    const { data, error } = await supabase
+      .from('purchase_orders')
+      .select('*')
+      .or(`id.eq.${id},po_number.eq.${id}`);
+    if (error) throw error;
+    if (!data || data.length === 0) throw new Error('Purchase order not found');
+    return mapDBToPO(data[0]);
   },
 
   createOrder: async (orderData, managerName = 'Eleanor Vance') => {
-    await delay(500);
-    const orders = getStorageData(ORDERS_KEY, INITIAL_PURCHASE_ORDERS);
-    const count = orders.length + 1;
-    const poNumber = `PO-2026-${String(count).padStart(3, '0')}`;
+    // Generate PO Number based on count
+    const { count, error: countError } = await supabase
+      .from('purchase_orders')
+      .select('*', { count: 'exact', head: true });
+    
+    if (countError) throw countError;
+    const poNumber = `PO-2026-${String((count || 0) + 1).padStart(3, '0')}`;
     const today = new Date().toISOString().split('T')[0];
 
-    const newPO = {
-      id: `po_${Date.now()}`,
-      poNumber,
-      status: 'Requested',
-      createdDate: today,
-      approvedDate: null,
-      sentDate: null,
-      acceptedDate: null,
-      deliveredDate: null,
-      invoiceSubmittedDate: null,
-      invoiceVerifiedDate: null,
-      paidDate: null,
-      queryComment: null,
-      rejectionReason: null,
-      history: [],
-      ...orderData
+    const tempPO = {
+      history: []
+    };
+    const initialHistory = addHistoryEntry(tempPO, 'Invoice Requested', `${managerName} (Manager)`);
+
+    const dbData = {
+      id: orderData.id || `po_${Date.now()}`,
+      po_number: poNumber,
+      vendor_id: orderData.vendorId,
+      vendor_name: orderData.vendorName,
+      category: orderData.category,
+      status: 'Invoice Requested',
+      created_date: today,
+      expected_delivery_date: orderData.expectedDeliveryDate,
+      payment_terms: orderData.paymentTerms,
+      delivery_address: orderData.deliveryAddress,
+      total_amount: Number(orderData.totalAmount),
+      currency: orderData.currency || 'INR',
+      notes: orderData.notes,
+      items: orderData.items || [],
+      history: initialHistory
     };
 
-    newPO.history = addHistoryEntry(newPO, 'Requested', `${managerName} (Manager)`);
+    const { data, error } = await supabase
+      .from('purchase_orders')
+      .insert(dbData)
+      .select('*');
 
-    const updated = [newPO, ...orders];
-    setStorageData(ORDERS_KEY, updated);
-    return newPO;
+    if (error) throw error;
+    return mapDBToPO(data[0]);
   },
 
-  approveOrder: async (id, managerName = 'Marcus Brody') => {
-    await delay(400);
-    const orders = getStorageData(ORDERS_KEY, INITIAL_PURCHASE_ORDERS);
-    const today = new Date().toISOString().split('T')[0];
-    
-    const updated = orders.map(po => {
-      if (po.id === id) {
-        const nextHistory = addHistoryEntry(
-          addHistoryEntry(po, 'Approved', `${managerName} (Manager)`),
-          'Sent to Vendor',
-          'System'
-        );
-        return {
-          ...po,
-          status: 'Sent to Vendor', // Auto progresses to sent to vendor
-          approvedDate: today,
-          sentDate: today,
-          history: nextHistory
-        };
-      }
-      return po;
-    });
+  approveOrder: async (id, managerName = 'Eleanor Vance') => {
+    const po = await orderApi.getOrderById(id);
+    const updatedHistory = addHistoryEntry(
+      { history: addHistoryEntry(po, 'Approved', `${managerName} (Manager)`) },
+      'Sent to Vendor',
+      'System'
+    );
 
-    setStorageData(ORDERS_KEY, updated);
-    return updated.find(o => o.id === id);
+    const { data, error } = await supabase
+      .from('purchase_orders')
+      .update({
+        status: 'Sent to Vendor',
+        history: updatedHistory
+      })
+      .eq('id', id)
+      .select('*');
+
+    if (error) throw error;
+    return mapDBToPO(data[0]);
   },
 
-  rejectOrder: async (id, reason, managerName = 'Marcus Brody') => {
-    await delay(400);
-    const orders = getStorageData(ORDERS_KEY, INITIAL_PURCHASE_ORDERS);
-    const updated = orders.map(po => {
-      if (po.id === id) {
-        return {
-          ...po,
-          status: 'Rejected',
-          rejectionReason: reason,
-          history: addHistoryEntry(po, 'Rejected', `${managerName} (Manager)`)
-        };
-      }
-      return po;
-    });
+  rejectOrder: async (id, reason, managerName = 'Eleanor Vance') => {
+    const po = await orderApi.getOrderById(id);
+    const updatedHistory = addHistoryEntry(po, 'Rejected', `${managerName} (Manager)`);
 
-    setStorageData(ORDERS_KEY, updated);
-    return updated.find(o => o.id === id);
+    const { data, error } = await supabase
+      .from('purchase_orders')
+      .update({
+        status: 'Rejected',
+        rejection_reason: reason,
+        history: updatedHistory
+      })
+      .eq('id', id)
+      .select('*');
+
+    if (error) throw error;
+    return mapDBToPO(data[0]);
   },
 
   acceptOrder: async (id, vendorName = 'Vendor') => {
-    await delay(400);
-    const orders = getStorageData(ORDERS_KEY, INITIAL_PURCHASE_ORDERS);
-    const today = new Date().toISOString().split('T')[0];
+    const po = await orderApi.getOrderById(id);
+    const updatedHistory = addHistoryEntry(po, 'Accepted', `${vendorName} (Vendor)`);
 
-    const updated = orders.map(po => {
-      if (po.id === id) {
-        return {
-          ...po,
-          status: 'Accepted',
-          acceptedDate: today,
-          queryComment: null,
-          history: addHistoryEntry(po, 'Accepted', `${vendorName} (Vendor)`)
-        };
-      }
-      return po;
-    });
+    const { data, error } = await supabase
+      .from('purchase_orders')
+      .update({
+        status: 'Accepted',
+        query_comment: null,
+        history: updatedHistory
+      })
+      .eq('id', id)
+      .select('*');
 
-    setStorageData(ORDERS_KEY, updated);
-    return updated.find(o => o.id === id);
+    if (error) throw error;
+    return mapDBToPO(data[0]);
   },
 
   raiseQuery: async (id, comment, vendorName = 'Vendor') => {
-    await delay(400);
-    const orders = getStorageData(ORDERS_KEY, INITIAL_PURCHASE_ORDERS);
+    const po = await orderApi.getOrderById(id);
+    const updatedHistory = addHistoryEntry(po, 'Query Raised', `${vendorName} (Vendor)`);
 
-    const updated = orders.map(po => {
-      if (po.id === id) {
-        return {
-          ...po,
-          status: 'Query Raised',
-          queryComment: comment,
-          history: addHistoryEntry(po, 'Query Raised', `${vendorName} (Vendor)`)
-        };
-      }
-      return po;
-    });
+    const { data, error } = await supabase
+      .from('purchase_orders')
+      .update({
+        status: 'Query Raised',
+        query_comment: comment,
+        history: updatedHistory
+      })
+      .eq('id', id)
+      .select('*');
 
-    setStorageData(ORDERS_KEY, updated);
-    return updated.find(o => o.id === id);
+    if (error) throw error;
+    return mapDBToPO(data[0]);
   },
 
   markDelivered: async (id, vendorName = 'Vendor') => {
-    await delay(400);
-    const orders = getStorageData(ORDERS_KEY, INITIAL_PURCHASE_ORDERS);
+    const po = await orderApi.getOrderById(id);
+    const updatedHistory = addHistoryEntry(po, 'Delivered', `${vendorName} (Vendor)`);
+
+    const { data, error } = await supabase
+      .from('purchase_orders')
+      .update({
+        status: 'Delivered',
+        history: updatedHistory
+      })
+      .eq('id', id)
+      .select('*');
+
+    if (error) throw error;
+    return mapDBToPO(data[0]);
+  },
+
+  generateInvoiceForOrder: async (id, vendorName = 'Vendor') => {
+    const po = await orderApi.getOrderById(id);
+    
     const today = new Date().toISOString().split('T')[0];
+    const dueDate = new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0];
 
-    const updated = orders.map(po => {
-      if (po.id === id) {
-        return {
-          ...po,
-          status: 'Delivered',
-          deliveredDate: today,
-          history: addHistoryEntry(po, 'Delivered', `${vendorName} (Vendor)`)
-        };
-      }
-      return po;
-    });
+    const totalAmount = po.totalAmount;
+    const taxAmount = Number((totalAmount * 0.18 / 1.18).toFixed(2));
+    const subtotal = Number((totalAmount - taxAmount).toFixed(2));
 
-    setStorageData(ORDERS_KEY, updated);
-    return updated.find(o => o.id === id);
+    const dbInvoice = {
+      id: `inv_${Date.now()}`,
+      invoice_number: `INV-${po.poNumber.replace('PO-', '')}-${Math.floor(100 + Math.random() * 900)}`,
+      po_id: po.id,
+      po_number: po.poNumber,
+      vendor_id: po.vendorId,
+      vendor_name: po.vendorName,
+      total_amount: totalAmount,
+      paid_amount: 0.00,
+      remaining_balance: totalAmount,
+      status: 'Submitted',
+      submitted_at: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      pdf_url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
+    };
+
+    const { data: invData, error: invError } = await supabase
+      .from('invoices')
+      .insert(dbInvoice)
+      .select('*');
+
+    if (invError) throw invError;
+
+    const updatedHistory = addHistoryEntry(po, 'Invoice Generated', `${vendorName} (Vendor)`);
+
+    const { error: poError } = await supabase
+      .from('purchase_orders')
+      .update({
+        status: 'Invoice Generated',
+        history: updatedHistory
+      })
+      .eq('id', id);
+
+    if (poError) throw poError;
+
+    // Return the created invoice
+    const inv = invData[0];
+    return {
+      id: inv.id,
+      invoiceNumber: inv.invoice_number,
+      poId: inv.po_id,
+      poNumber: inv.po_number,
+      vendorId: inv.vendor_id,
+      vendorName: inv.vendor_name,
+      totalAmount: Number(inv.total_amount) || 0,
+      paidAmount: Number(inv.paid_amount) || 0,
+      remainingBalance: Number(inv.remaining_balance) || 0,
+      status: inv.status,
+      submittedAt: inv.submitted_at,
+      pdfUrl: inv.pdf_url,
+      rejectionReason: inv.rejection_reason || null,
+      items: po.items ? po.items.map(i => ({
+        description: i.name,
+        quantity: i.quantity,
+        unitPrice: i.unitPrice,
+        total: i.total
+      })) : []
+    };
+  },
+
+  markOutForDelivery: async (id, vendorName = 'Vendor') => {
+    const po = await orderApi.getOrderById(id);
+    const updatedHistory = addHistoryEntry(po, 'Out for Delivery', `${vendorName} (Vendor)`);
+
+    const { data, error } = await supabase
+      .from('purchase_orders')
+      .update({
+        status: 'Out for Delivery',
+        history: updatedHistory
+      })
+      .eq('id', id)
+      .select('*');
+
+    if (error) throw error;
+    return mapDBToPO(data[0]);
+  },
+
+  confirmDelivery: async (id, managerName = 'Manager') => {
+    const po = await orderApi.getOrderById(id);
+    const updatedHistory = addHistoryEntry(po, 'Delivered', `${managerName} (Manager)`);
+
+    const { data, error } = await supabase
+      .from('purchase_orders')
+      .update({
+        status: 'Delivered',
+        history: updatedHistory
+      })
+      .eq('id', id)
+      .select('*');
+
+    if (error) throw error;
+    return mapDBToPO(data[0]);
   }
 };

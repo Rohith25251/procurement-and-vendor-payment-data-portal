@@ -1,17 +1,18 @@
-import { delay, getStorageData, setStorageData } from './apiUtils';
-import { INITIAL_USERS } from '../mock/users';
-
-const USERS_KEY = 'procure_users_db';
+import { supabase } from '../supabaseClient';
 
 export const authApi = {
   login: async (email, password) => {
-    await delay(400);
-    const users = getStorageData(USERS_KEY, INITIAL_USERS);
-    const user = users.find(
-      u => u.email.toLowerCase() === email.toLowerCase() && u.password === password
-    );
+    const { data: users, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', email.toLowerCase().trim());
 
-    if (!user) {
+    if (error || !users || users.length === 0) {
+      throw new Error('Invalid email or password. Please check your credentials.');
+    }
+
+    const user = users[0];
+    if (user.password !== password) {
       throw new Error('Invalid email or password. Please check your credentials.');
     }
 
@@ -23,8 +24,8 @@ export const authApi = {
         email: user.email,
         role: user.role,
         department: user.department || null,
-        companyName: user.companyName || null,
-        vendorId: user.vendorId || null,
+        companyName: user.company_name || null,
+        vendorId: user.vendor_id || null,
         avatar: user.avatar
       },
       token
@@ -35,7 +36,6 @@ export const authApi = {
   },
 
   getCurrentSession: async () => {
-    await delay(150);
     const stored = localStorage.getItem('procure_session');
     if (!stored) return null;
     try {
@@ -46,31 +46,29 @@ export const authApi = {
   },
 
   updateUserProfile: async (userId, profileData) => {
-    await delay(450);
-    const users = getStorageData(USERS_KEY, INITIAL_USERS);
+    const updateData = {};
+    if (profileData.name !== undefined) updateData.name = profileData.name;
+    if (profileData.email !== undefined) updateData.email = profileData.email;
+    if (profileData.password !== undefined) updateData.password = profileData.password;
+    if (profileData.department !== undefined) updateData.department = profileData.department;
+    if (profileData.companyName !== undefined) updateData.company_name = profileData.companyName;
+    if (profileData.avatar !== undefined) updateData.avatar = profileData.avatar;
 
-    let updatedUserObj = null;
+    const { data, error } = await supabase
+      .from('users')
+      .update(updateData)
+      .eq('id', userId)
+      .select('*');
 
-    const updatedUsers = users.map(u => {
-      if (u.id === userId) {
-        updatedUserObj = {
-          ...u,
-          name: profileData.name || u.name,
-          email: profileData.email || u.email,
-          password: profileData.password ? profileData.password : u.password,
-          department: profileData.department !== undefined ? profileData.department : u.department,
-          companyName: profileData.companyName !== undefined ? profileData.companyName : u.companyName
-        };
-        return updatedUserObj;
-      }
-      return u;
-    });
+    if (error || !data || data.length === 0) {
+      throw new Error(error?.message || 'Failed to update profile');
+    }
 
-    setStorageData(USERS_KEY, updatedUsers);
+    const updatedUserObj = data[0];
 
     // Update active session in localStorage
     const currentSessionStr = localStorage.getItem('procure_session');
-    if (currentSessionStr && updatedUserObj) {
+    if (currentSessionStr) {
       try {
         const session = JSON.parse(currentSessionStr);
         if (session.user.id === userId) {
@@ -79,7 +77,8 @@ export const authApi = {
             name: updatedUserObj.name,
             email: updatedUserObj.email,
             department: updatedUserObj.department,
-            companyName: updatedUserObj.companyName
+            companyName: updatedUserObj.company_name,
+            avatar: updatedUserObj.avatar
           };
           localStorage.setItem('procure_session', JSON.stringify(session));
         }
@@ -88,11 +87,19 @@ export const authApi = {
       }
     }
 
-    return updatedUserObj;
+    return {
+      id: updatedUserObj.id,
+      name: updatedUserObj.name,
+      email: updatedUserObj.email,
+      role: updatedUserObj.role,
+      department: updatedUserObj.department || null,
+      companyName: updatedUserObj.company_name || null,
+      vendorId: updatedUserObj.vendor_id || null,
+      avatar: updatedUserObj.avatar
+    };
   },
 
   logout: async () => {
-    await delay(200);
     localStorage.removeItem('procure_session');
     return true;
   }

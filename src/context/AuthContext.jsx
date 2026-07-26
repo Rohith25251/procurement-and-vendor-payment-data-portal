@@ -47,7 +47,8 @@ export const AuthProvider = ({ children }) => {
         name: updatedUser.name,
         email: updatedUser.email,
         department: updatedUser.department,
-        companyName: updatedUser.companyName
+        companyName: updatedUser.companyName,
+        avatar: updatedUser.avatar
       });
       return updatedUser;
     } finally {

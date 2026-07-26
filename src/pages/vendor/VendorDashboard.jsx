@@ -7,7 +7,7 @@ import { orderApi } from '../../api/orderApi';
 import { invoiceApi } from '../../api/invoiceApi';
 import { paymentApi } from '../../api/paymentApi';
 import { 
-  PackageCheck, FileText, DollarSign, Clock, ArrowRight, ShoppingCart 
+  PackageCheck, FileText, IndianRupee, Clock, ArrowRight, ShoppingCart 
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -34,20 +34,20 @@ export const VendorDashboard = () => {
           paymentApi.getPayments()
         ]);
 
-        const myOrders = orders.filter(o => o.vendorId === user.vendorId || o.vendorName.includes(user.name) || o.vendorId === 'vnd_apex_01');
-        const myInvoices = invoices.filter(i => i.vendorId === user.vendorId || i.vendorName.includes(user.name) || i.vendorId === 'vnd_apex_01');
-        const myPayments = payments.filter(p => p.vendorId === user.vendorId || p.vendorName.includes(user.name) || p.vendorId === 'vnd_apex_01');
+        const myOrders = orders.filter(o => o.vendorId === user.vendorId || o.vendorName.includes(user.name));
+        const myInvoices = invoices.filter(i => i.vendorId === user.vendorId || i.vendorName.includes(user.name));
+        const myPayments = payments.filter(p => p.vendorId === user.vendorId || p.vendorName.includes(user.name));
 
         const activeCount = myOrders.filter(o => o.status === 'Sent to Vendor' || o.status === 'Accepted' || o.status === 'Delivered').length;
         const pendingInvCount = myInvoices.filter(i => i.status === 'Submitted').length;
 
         const earned = myPayments
           .filter(p => p.status === 'Paid' || p.status === 'Partially Paid')
-          .reduce((acc, p) => acc + (p.amountPaid || 0), 10000);
+          .reduce((acc, p) => acc + (p.amountPaid || 0), 0);
 
         const pendingPay = myInvoices
           .filter(i => i.status === 'Verified' || i.status === 'Partially Paid')
-          .reduce((acc, i) => acc + (i.remainingBalance || 0), 10350);
+          .reduce((acc, i) => acc + (i.remainingBalance || 0), 0);
 
         setStats({
           activeOrders: activeCount,
@@ -107,14 +107,14 @@ export const VendorDashboard = () => {
         />
         <StatCard
           title="Total Received"
-          value={`$${stats.totalEarned.toLocaleString()}`}
+          value={`₹${stats.totalEarned.toLocaleString('en-IN')}`}
           subtext="Cleared payments to date"
-          icon={DollarSign}
+          icon={IndianRupee}
           color="green"
         />
         <StatCard
           title="Pending Payment Amount"
-          value={`$${stats.pendingPayment.toLocaleString()}`}
+          value={`₹${stats.pendingPayment.toLocaleString('en-IN')}`}
           subtext="Verified claims in payout queue"
           icon={Clock}
           color="purple"
@@ -155,7 +155,7 @@ export const VendorDashboard = () => {
                   <td className="py-4 px-6 font-bold text-slate-900">{po.poNumber}</td>
                   <td className="py-4 px-6 text-slate-500">{po.createdDate}</td>
                   <td className="py-4 px-6 font-semibold">{po.expectedDeliveryDate}</td>
-                  <td className="py-4 px-6 font-bold text-slate-900">${po.totalAmount.toLocaleString()}</td>
+                  <td className="py-4 px-6 font-bold text-slate-900">₹{po.totalAmount.toLocaleString('en-IN')}</td>
                   <td className="py-4 px-6">
                     <StatusBadge status={po.status} />
                   </td>

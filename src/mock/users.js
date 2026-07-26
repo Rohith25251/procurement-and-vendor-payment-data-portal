@@ -5,17 +5,8 @@ export const INITIAL_USERS = [
     email: "manager@procurehub.com",
     password: "password123",
     role: "manager",
-    department: "Strategic Sourcing & Operations",
+    department: "Sourcing, Operations & Finance",
     avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=150&q=80"
-  },
-  {
-    id: "usr_mgr_2",
-    name: "Marcus Brody",
-    email: "marcus@procurehub.com",
-    password: "password123",
-    role: "manager",
-    department: "Finance & Accounts Payable",
-    avatar: "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=150&q=80"
   },
   {
     id: "usr_vnd_1",

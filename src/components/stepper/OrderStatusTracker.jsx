@@ -1,18 +1,15 @@
 import React from 'react';
 import { 
   FilePlus, CheckCircle, Send, CheckCheck, Truck, FileText, 
-  ShieldCheck, DollarSign, AlertCircle, HelpCircle, XCircle 
+  ShieldCheck, IndianRupee, AlertCircle, HelpCircle, XCircle 
 } from 'lucide-react';
 
 const STEPS = [
-  { id: 'Requested', label: 'Requested', icon: FilePlus },
-  { id: 'Approved', label: 'Approved', icon: CheckCircle },
-  { id: 'Sent to Vendor', label: 'Sent to Vendor', icon: Send },
-  { id: 'Accepted', label: 'Accepted', icon: CheckCheck },
-  { id: 'Delivered', label: 'Delivered', icon: Truck },
-  { id: 'Invoice Submitted', label: 'Invoice Submitted', icon: FileText },
-  { id: 'Invoice Verified', label: 'Invoice Verified', icon: ShieldCheck },
-  { id: 'Paid', label: 'Paid', icon: DollarSign }
+  { id: 'Invoice Requested', label: 'Invoice Requested', icon: FilePlus },
+  { id: 'Invoice Generated', label: 'Invoice Generated', icon: FileText },
+  { id: 'Paid', label: 'Paid', icon: IndianRupee },
+  { id: 'Out for Delivery', label: 'Out for Delivery', icon: Truck },
+  { id: 'Delivered', label: 'Delivered', icon: CheckCircle }
 ];
 
 export const OrderStatusTracker = ({ currentStatus, history = [], queryComment, rejectionReason }) => {
