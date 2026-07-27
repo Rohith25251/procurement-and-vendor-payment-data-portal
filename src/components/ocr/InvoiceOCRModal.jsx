@@ -1095,47 +1095,53 @@ export const InvoiceOCRModal = ({ isOpen, onClose, vendors = [], onRegister }) =
             </div>
           )}
 
-          {/* Vendor */}
-          <div>
-            <label className="flex items-center gap-1.5 text-[10px] font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
-              <Building2 className="w-3 h-3 text-slate-400" />Vendor Name *
-            </label>
-            {/* Primary: free-text vendor name — pre-filled from PDF, user can edit */}
-            <input
-              type="text"
-              value={fields.vendorName}
-              onChange={e => setFields(f => ({ ...f, vendorName: e.target.value, vendorId: f.vendorId }))}
-              placeholder="Enter vendor / supplier name"
-              className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500"
-            />
-            <p className="text-[10px] text-slate-400 mt-1">
-              This saves the order only. The vendor is <strong>not registered</strong> automatically.
-            </p>
-
-            {/* Optional: link to an already-registered vendor */}
-            <details className="mt-2">
-              <summary className="text-[10px] text-slate-500 font-semibold cursor-pointer hover:text-slate-700 select-none">
-                ▸ Link to a registered vendor (optional)
-              </summary>
-              <div className="mt-2 relative">
+          {/* Vendor selection row */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="flex items-center gap-1.5 text-[10px] font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                <Building2 className="w-3 h-3 text-slate-400" />Link Registered Vendor
+              </label>
+              <div className="relative">
                 <select
                   value={fields.vendorId}
                   onChange={e => {
-                    const v = vendors.find(v => v.id === e.target.value);
-                    setFields(f => ({ ...f, vendorId: e.target.value, vendorName: v ? v.name : f.vendorName }));
+                    const val = e.target.value;
+                    const v = vendors.find(v => v.id === val);
+                    setFields(f => ({ ...f, vendorId: val, vendorName: v ? v.name : f.vendorName }));
                   }}
-                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 pr-8"
+                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 pr-8 font-semibold text-slate-800"
                 >
-                  <option value="">-- None (unregistered vendor) --</option>
+                  <option value="">-- New / Unregistered Vendor --</option>
                   {vendors.map(v => (
-                    <option key={v.id} value={v.id}>{v.name}{v.code ? ` (${v.code})` : ''}{v.status !== 'Approved' ? ` [${v.status}]` : ''}</option>
+                    <option key={v.id} value={v.id}>{v.name}{v.code ? ` (${v.code})` : ''}</option>
                   ))}
                 </select>
                 <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
               </div>
-              <VendorCard vendor={selectedVendor} />
-            </details>
+            </div>
+            <div>
+              <label className="flex items-center gap-1.5 text-[10px] font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                <Building2 className="w-3 h-3 text-slate-400" />Vendor Name *
+              </label>
+              <input
+                type="text"
+                value={fields.vendorName}
+                onChange={e => setFields(f => ({ ...f, vendorName: e.target.value }))}
+                placeholder="Enter vendor / supplier name"
+                disabled={!!fields.vendorId}
+                className={`w-full px-3 py-2.5 border rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 ${
+                  fields.vendorId
+                    ? 'bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed font-semibold'
+                    : 'bg-slate-50 border-slate-200 text-slate-800'
+                }`}
+              />
+            </div>
           </div>
+          {selectedVendor && (
+            <div className="mt-1">
+              <VendorCard vendor={selectedVendor} />
+            </div>
+          )}
 
           {/* Notes */}
           <div>

@@ -129,11 +129,41 @@ export const invoiceApi = {
 
     const nowFormatted = new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
+    let finalPoId = invoiceData.poId;
+    let finalPoNumber = invoiceData.poNumber || 'EXTERNAL';
+
+    if (!finalPoId) {
+      // Auto-create a dummy PO to store items for external invoices
+      try {
+        const po = await orderApi.createOrder({
+          vendorId: invoiceData.vendorId,
+          vendorName: invoiceData.vendorName,
+          category: 'Software',
+          expectedDeliveryDate: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString().split('T')[0],
+          paymentTerms: 'Net 30',
+          deliveryAddress: 'Main Office',
+          totalAmount: invoiceData.totalAmount,
+          notes: `Auto-generated for External Invoice #${invoiceData.invoiceNumber}`,
+          items: (invoiceData.items || []).map(i => ({
+            name: i.description,
+            quantity: i.quantity,
+            unitPrice: i.unitPrice,
+            total: i.total
+          }))
+        }, 'System');
+        
+        finalPoId = po.id;
+        finalPoNumber = po.poNumber;
+      } catch (e) {
+        console.error("Failed to auto-create PO for external invoice", e);
+      }
+    }
+
     const dbInvoice = {
       id: `inv_${Date.now()}`,
       invoice_number: invoiceData.invoiceNumber,
-      po_id: invoiceData.poId,
-      po_number: invoiceData.poNumber,
+      po_id: finalPoId,
+      po_number: finalPoNumber,
       vendor_id: invoiceData.vendorId,
       vendor_name: invoiceData.vendorName,
       total_amount: invoiceData.totalAmount,
@@ -152,9 +182,9 @@ export const invoiceApi = {
     if (invError) throw invError;
 
     // Update PO status to "Invoice Submitted"
-    if (invoiceData.poId) {
+    if (finalPoId) {
       try {
-        const po = await orderApi.getOrderById(invoiceData.poId);
+        const po = await orderApi.getOrderById(finalPoId);
         const history = po.history || [];
         const updatedHistory = [...history, { status: 'Invoice Submitted', timestamp: nowFormatted, actor: `${vendorName} (Vendor)` }];
 
@@ -164,7 +194,7 @@ export const invoiceApi = {
             status: 'Invoice Submitted',
             history: updatedHistory
           })
-          .eq('id', invoiceData.poId);
+          .eq('id', finalPoId);
       } catch (e) {
         console.error("Failed to update PO status on invoice submit", e);
       }
@@ -176,6 +206,7 @@ export const invoiceApi = {
     }
     return mapped;
   },
+
 
   verifyInvoice: async (id, managerName = 'Eleanor Vance') => {
     const today = new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
