@@ -62,7 +62,7 @@ Return a JSON object matching this schema:
 Return ONLY the raw JSON object. Do not wrap it in markdown blocks.`;
 
   if (geminiKey) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${geminiKey}`;
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
