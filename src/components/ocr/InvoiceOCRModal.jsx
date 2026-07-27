@@ -797,13 +797,17 @@ export const InvoiceOCRModal = ({ isOpen, onClose, vendors = [], onRegister }) =
     setFields(f => {
       const items = [...f.items];
       items[idx] = { ...items[idx], [key]: val };
-      if (key === 'quantity' || key === 'unitPrice') {
-        items[idx].total = (parseFloat(items[idx].quantity) || 0) * (parseFloat(items[idx].unitPrice) || 0);
-      }
-      // Recompute taxAmount whenever total or taxRate changes
-      const t = parseFloat(items[idx].total) || 0;
+      
+      const q = parseFloat(items[idx].quantity) || 0;
+      const u = parseFloat(items[idx].unitPrice) || 0;
       const r = parseFloat(items[idx].taxRate) || 0;
-      items[idx].taxAmount = r > 0 ? Math.round(t * r / (100 + r) * 100) / 100 : 0;
+      
+      const baseTotal = q * u;
+      const taxAmount = baseTotal * (r / 100);
+      
+      items[idx].taxAmount = Math.round(taxAmount * 100) / 100;
+      items[idx].total = Math.round((baseTotal + taxAmount) * 100) / 100;
+      
       return { ...f, items };
     });
   };
