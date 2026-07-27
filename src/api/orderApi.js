@@ -53,13 +53,27 @@ export const orderApi = {
   },
 
   createOrder: async (orderData, managerName = 'Eleanor Vance') => {
-    // Generate PO Number based on count
-    const { count, error: countError } = await supabase
+    // Generate PO Number based on the highest suffix of existing POs to avoid duplicates
+    const { data: pos, error: fetchError } = await supabase
       .from('purchase_orders')
-      .select('*', { count: 'exact', head: true });
+      .select('po_number');
     
-    if (countError) throw countError;
-    const poNumber = `PO-2026-${String((count || 0) + 1).padStart(3, '0')}`;
+    if (fetchError) throw fetchError;
+    
+    let maxSuffix = 0;
+    if (pos && pos.length > 0) {
+      for (const p of pos) {
+        if (p.po_number && p.po_number.startsWith('PO-2026-')) {
+          const suffixStr = p.po_number.substring(8);
+          const suffixNum = parseInt(suffixStr, 10);
+          if (!isNaN(suffixNum) && suffixNum > maxSuffix) {
+            maxSuffix = suffixNum;
+          }
+        }
+      }
+    }
+    const nextNum = maxSuffix + 1;
+    const poNumber = `PO-2026-${String(nextNum).padStart(3, '0')}`;
     const today = new Date().toISOString().split('T')[0];
 
     const tempPO = {
