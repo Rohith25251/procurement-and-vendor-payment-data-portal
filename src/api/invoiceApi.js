@@ -129,6 +129,70 @@ export const invoiceApi = {
 
     const nowFormatted = new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
+    // 1. Resolve vendorId (fuzzy match/find or auto-create vendor)
+    let finalVendorId = invoiceData.vendorId;
+
+    if (!finalVendorId && invoiceData.vendorName) {
+      try {
+        const { data: existingVendors, error: findError } = await supabase
+          .from('vendors')
+          .select('id, name');
+        
+        if (!findError && existingVendors) {
+          const matched = existingVendors.find(
+            v => v.name.toLowerCase() === invoiceData.vendorName.trim().toLowerCase()
+          );
+          if (matched) {
+            finalVendorId = matched.id;
+          }
+        }
+      } catch (e) {
+        console.warn("Failed to find existing vendor by name", e);
+      }
+    }
+
+    if (!finalVendorId && invoiceData.vendorName) {
+      try {
+        const newVendorId = `vnd_custom_${Date.now()}`;
+        const newUserId = `usr_vnd_${Date.now()}`;
+        const cleanName = invoiceData.vendorName.trim();
+        const shortName = cleanName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'vendor';
+        
+        const dbVendor = {
+          id: newVendorId,
+          user_id: newUserId,
+          name: cleanName,
+          code: `VND-CST-${Math.floor(100 + Math.random() * 900)}`,
+          contact_person: 'Finance Dept',
+          email: `${shortName}@example.com`,
+          phone: '+91 98765 43210',
+          category: invoiceData.category || 'Software / SaaS (Software as a Service)',
+          status: 'Approved',
+          score: 100,
+          address: 'Main Office Address',
+          joined_date: new Date().toISOString().split('T')[0]
+        };
+
+        const { data: vData, error: vError } = await supabase
+          .from('vendors')
+          .insert(dbVendor)
+          .select('*');
+
+        if (vError) {
+          console.error("Failed to insert auto-created vendor:", vError);
+          throw vError;
+        }
+        
+        if (vData && vData[0]) {
+          finalVendorId = vData[0].id;
+        }
+      } catch (e) {
+        console.error("Failed to auto-create vendor record", e);
+        throw new Error(`Failed to register vendor: ${e.message || e}`);
+      }
+    }
+
+    // 2. Resolve PO (auto-create linked PO for external invoices)
     let finalPoId = invoiceData.poId;
     let finalPoNumber = invoiceData.poNumber || 'EXTERNAL';
 
@@ -136,9 +200,9 @@ export const invoiceApi = {
       // Auto-create a dummy PO to store items for external invoices
       try {
         const po = await orderApi.createOrder({
-          vendorId: invoiceData.vendorId,
+          vendorId: finalVendorId,
           vendorName: invoiceData.vendorName,
-          category: 'Software',
+          category: invoiceData.category || 'Software / SaaS (Software as a Service)',
           expectedDeliveryDate: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString().split('T')[0],
           paymentTerms: 'Net 30',
           deliveryAddress: 'Main Office',
@@ -156,6 +220,7 @@ export const invoiceApi = {
         finalPoNumber = po.poNumber;
       } catch (e) {
         console.error("Failed to auto-create PO for external invoice", e);
+        throw e;
       }
     }
 
@@ -164,7 +229,7 @@ export const invoiceApi = {
       invoice_number: invoiceData.invoiceNumber,
       po_id: finalPoId,
       po_number: finalPoNumber,
-      vendor_id: invoiceData.vendorId,
+      vendor_id: finalVendorId,
       vendor_name: invoiceData.vendorName,
       total_amount: invoiceData.totalAmount,
       paid_amount: 0.00,
@@ -199,6 +264,7 @@ export const invoiceApi = {
         console.error("Failed to update PO status on invoice submit", e);
       }
     }
+
 
     const mapped = mapDBToInvoice(data[0]);
     if (invoiceData.items) {
