@@ -31,6 +31,110 @@ function isPrice(s) {
   return hasDecimal || hasCurrency || val >= 100;
 }
 
+async function callLLMOCR(base64Data) {
+  const geminiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  const openaiKey = import.meta.env.VITE_OPENAI_API_KEY;
+
+  if (!geminiKey && !openaiKey) {
+    throw new Error('Please define VITE_GEMINI_API_KEY or VITE_OPENAI_API_KEY in your .env file.');
+  }
+
+  const promptText = `Analyze this invoice image and extract details.
+Return a JSON object matching this schema:
+{
+  "invoiceNumber": "string",
+  "invoiceDate": "string (DD.MM.YYYY format)",
+  "totalAmount": number (grand total value),
+  "poReference": "string",
+  "gstin": "string",
+  "vendorName": "string",
+  "items": [
+    {
+      "description": "string",
+      "quantity": number,
+      "unitPrice": number (base item price before tax),
+      "taxRate": number (tax percentage e.g. 18),
+      "taxAmount": number (tax value for this item),
+      "total": number (total amount including tax for this item)
+    }
+  ]
+}
+Return ONLY the raw JSON object. Do not wrap it in markdown blocks.`;
+
+  if (geminiKey) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              { text: promptText },
+              {
+                inlineData: {
+                  mimeType: 'image/png',
+                  data: base64Data
+                }
+              }
+            ]
+          }
+        ],
+        generationConfig: {
+          responseMimeType: 'application/json'
+        }
+      })
+    });
+    
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Gemini API error: ${response.status} - ${errText}`);
+    }
+    
+    const result = await response.json();
+    const jsonStr = result.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!jsonStr) throw new Error('Gemini API returned an empty response.');
+    return JSON.parse(jsonStr.trim());
+  } else {
+    const url = 'https://api.openai.com/v1/chat/completions';
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${openaiKey}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        response_format: { type: 'json_object' },
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: promptText },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:image/png;base64,${base64Data}`
+                }
+              }
+            ]
+          }
+        ]
+      })
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`OpenAI API error: ${response.status} - ${errText}`);
+    }
+
+    const result = await response.json();
+    const jsonStr = result.choices?.[0]?.message?.content;
+    if (!jsonStr) throw new Error('OpenAI API returned an empty response.');
+    return JSON.parse(jsonStr.trim());
+  }
+}
+
 /**
  * Extract all text items from ALL pages with their page-normalized coordinates.
  * Returns: Array of { x, y, w, h, str, page }
@@ -689,59 +793,100 @@ export const InvoiceOCRModal = ({ isOpen, onClose, vendors = [], onRegister }) =
 
       // ── Step 2: Extract text ──────────────────────────────────────────────
       setStage('ocr');
-      setOcrStatus('Reading PDF text content…');
-      setOcrProgress(15);
-
-      // Get all text items with coordinates (all pages up to 3)
-      const allItems = await extractAllItems(pdf);
-      const isDigital = allItems.length > 10; // digital PDF has many text items
-      setIsDigitalPDF(isDigital);
+      
+      const geminiKey = import.meta.env.VITE_GEMINI_API_KEY;
+      const openaiKey = import.meta.env.VITE_OPENAI_API_KEY;
+      const useLLM = !!(geminiKey || openaiKey);
 
       let rawExtracted = '';
       let rows = [];
+      let lineItems = [];
+      let invNum = '';
+      let invDate = '';
+      let totalAmt = 0;
+      let gstin = '';
+      let poRef = '';
+      let vendorHint = '';
 
-      if (isDigital) {
-        // ✅ Digital PDF: use coordinate-based extraction
-        setOcrStatus('Parsing PDF layout…');
-        setOcrProgress(50);
-        rows = groupIntoRows(allItems);
-        rawExtracted = rowsToText(rows);
+      if (useLLM) {
+        setOcrStatus('Processing invoice with AI OCR…');
+        setOcrProgress(40);
+        const base64Data = imageDataUrl.split(',')[1];
+        const res = await callLLMOCR(base64Data);
         setOcrProgress(80);
+        
+        invNum = res.invoiceNumber || '';
+        invDate = res.invoiceDate || '';
+        totalAmt = Number(res.totalAmount) || 0;
+        poRef = res.poReference || '';
+        gstin = res.gstin || '';
+        vendorHint = res.vendorName || '';
+        lineItems = (res.items || []).map(i => ({
+          description: i.description || '',
+          quantity: Number(i.quantity) || 1,
+          unitPrice: Number(i.unitPrice) || 0,
+          taxRate: Number(i.taxRate) || 0,
+          taxAmount: Number(i.taxAmount) || 0,
+          total: Number(i.total) || 0
+        }));
+        
+        rawExtracted = `AI Extraction:\nVendor: ${vendorHint}\nInvoice #: ${invNum}\nDate: ${invDate}\nTotal: ₹${totalAmt}\n\nLine Items:\n` + 
+          lineItems.map(i => `${i.description} | Qty: ${i.quantity} | Price: ₹${i.unitPrice} | Tax: ${i.taxRate}% (₹${i.taxAmount}) | Total: ₹${i.total}`).join('\n');
       } else {
-        // 🔍 Scanned image: Tesseract OCR
-        setOcrStatus('Scanned PDF — running OCR engine…');
-        setOcrProgress(20);
-        const worker = await createWorker('eng', 1, {
-          logger: m => {
-            if (m.status === 'recognizing text') {
-              setOcrProgress(Math.round(20 + m.progress * 60));
-              setOcrStatus(`OCR: ${Math.round(m.progress * 100)}%`);
+        setOcrStatus('Reading PDF text content…');
+        setOcrProgress(15);
+        // Get all text items with coordinates (all pages up to 3)
+        const allItems = await extractAllItems(pdf);
+        const isDigital = allItems.length > 10; // digital PDF has many text items
+        setIsDigitalPDF(isDigital);
+
+        if (isDigital) {
+          // ✅ Digital PDF: use coordinate-based extraction
+          setOcrStatus('Parsing PDF layout…');
+          setOcrProgress(50);
+          rows = groupIntoRows(allItems);
+          rawExtracted = rowsToText(rows);
+          setOcrProgress(80);
+        } else {
+          // 🔍 Scanned image: Tesseract OCR
+          setOcrStatus('Scanned PDF — running OCR engine…');
+          setOcrProgress(20);
+          const worker = await createWorker('eng', 1, {
+            logger: m => {
+              if (m.status === 'recognizing text') {
+                setOcrProgress(Math.round(20 + m.progress * 60));
+                setOcrStatus(`OCR: ${Math.round(m.progress * 100)}%`);
+              }
             }
-          }
-        });
-        const { data: { text } } = await worker.recognize(imageDataUrl);
-        await worker.terminate();
-        rawExtracted = text;
-        // Build fake rows from OCR text for coordinate-based extractors
-        rows = rawExtracted.split('\n').filter(Boolean).map((line, i) => [{ x: 0, y: i * 12, str: line, page: 1 }]);
-        setOcrProgress(80);
+          });
+          const { data: { text } } = await worker.recognize(imageDataUrl);
+          await worker.terminate();
+          rawExtracted = text;
+          // Build fake rows from OCR text for coordinate-based extractors
+          rows = rawExtracted.split('\n').filter(Boolean).map((line, i) => [{ x: 0, y: i * 12, str: line, page: 1 }]);
+          setOcrProgress(80);
+        }
+
+        setRawText(rawExtracted);
+
+        // ── Step 3: Parse fields ──────────────────────────────────────────────
+        setStage('extracting');
+        setOcrStatus('Extracting invoice fields…');
+        await new Promise(r => setTimeout(r, 200));
+
+        invNum     = extractInvoiceNumber(rows, rawExtracted);
+        invDate    = extractDate(rawExtracted);
+        totalAmt   = extractTotalAmount(rawExtracted);
+        gstin      = extractGSTIN(rawExtracted);
+        poRef      = extractPONumber(rawExtracted);
+        vendorHint = extractVendorName(rows, rawExtracted);
+        lineItems  = extractLineItems(rows, rawExtracted);
       }
 
       setRawText(rawExtracted);
-
-      // ── Step 3: Parse fields ──────────────────────────────────────────────
       setStage('extracting');
-      setOcrStatus('Extracting invoice fields…');
-      await new Promise(r => setTimeout(r, 200));
-
-      const invNum     = extractInvoiceNumber(rows, rawExtracted);
-      const invDate    = extractDate(rawExtracted);
-      const totalAmt   = extractTotalAmount(rawExtracted);
-      const gstin      = extractGSTIN(rawExtracted);
-      const poRef      = extractPONumber(rawExtracted);
-      const vendorHint = extractVendorName(rows, rawExtracted);
-      const lineItems  = extractLineItems(rows, rawExtracted);
-      const matched    = fuzzyMatchVendor(vendorHint, vendors);
+      setOcrStatus('Fuzzy matching vendor…');
+      const matched = fuzzyMatchVendor(vendorHint, vendors);
 
       // Auto-sync total
       const itemsSum = lineItems.reduce((s, i) => s + (i.total || 0), 0);
@@ -760,12 +905,13 @@ export const InvoiceOCRModal = ({ isOpen, onClose, vendors = [], onRegister }) =
         vendorName:    vendorHint || (matched ? matched.name : ''), // pre-fill with extracted name
         gstin,
         poReference:   poRef,
-        notes:         isDigital ? '' : '(Scanned PDF — please verify extracted data)',
+        notes:         useLLM ? '' : (isDigitalPDF ? '' : '(Scanned PDF — please verify extracted data)'),
         items:         lineItems,
       });
 
       setOcrProgress(100);
       setStage('preview');
+
     } catch (err) {
       console.error('PDF extraction error:', err);
       setErrorMessage(err.message || 'PDF processing failed. Please try again.');
