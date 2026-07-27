@@ -16,6 +16,9 @@ export const reportApi = {
     // Calculate total spend (sum of all disbursements in payments)
     const totalSpend = payments.reduce((acc, p) => acc + (Number(p.amount_paid) || 0), 0);
 
+    // External invoices (OCR-uploaded without a PO) — include in trend
+    const externalInvoices = invoices.filter(i => i.po_number === 'EXTERNAL' || !i.po_id);
+
     // Generate a continuous last 6 months timeline dynamically to make the line chart draw beautifully
     const monthlyMap = {};
     const today = new Date();
@@ -49,6 +52,16 @@ export const reportApi = {
       }
     });
 
+    // Also count external OCR invoices in the monthly trend
+    externalInvoices.forEach(inv => {
+      if (!inv.submitted_at) return;
+      const date = new Date(inv.submitted_at);
+      const monthStr = date.toLocaleString('default', { month: 'short', year: 'numeric' });
+      if (monthlyMap[monthStr]) {
+        monthlyMap[monthStr].posCount += 1;
+      }
+    });
+
     const monthlySpendTrend = Object.values(monthlyMap);
 
     // Initialize 4 standard categories with 0 values so that charts look balanced
@@ -71,21 +84,39 @@ export const reportApi = {
       overallPOSpend += amt;
     });
 
+    // Include external OCR invoices in category spend (map vendor → category)
+    const vendorCategoryMap = {};
+    vendors.forEach(v => { vendorCategoryMap[v.id] = v.category || 'Hardware & Raw Materials'; });
+
+    externalInvoices.forEach(inv => {
+      const cat = vendorCategoryMap[inv.vendor_id] || 'Hardware & Raw Materials';
+      const amt = Number(inv.total_amount) || 0;
+      if (categoryMap[cat] !== undefined) {
+        categoryMap[cat] += amt;
+      } else {
+        categoryMap[cat] = amt;
+      }
+      overallPOSpend += amt;
+    });
+
     const categorySpend = Object.keys(categoryMap).map(cat => ({
       category: cat,
       amount: categoryMap[cat],
       percentage: overallPOSpend > 0 ? Math.round((categoryMap[cat] / overallPOSpend) * 100) : 0
     }));
 
-    // Map vendor spend list dynamically
+    // Map vendor spend list dynamically — include both PO spend and external invoice spend
     const vendorSpendList = vendors.map(v => {
       const vOrders = purchaseOrders.filter(o => o.vendor_id === v.id || o.vendor_id === v.user_id);
-      const vSpend = vOrders.reduce((acc, o) => acc + (Number(o.total_amount) || 0), 0);
+      const vPOSpend = vOrders.reduce((acc, o) => acc + (Number(o.total_amount) || 0), 0);
+      const vExtSpend = externalInvoices
+        .filter(i => i.vendor_id === v.id)
+        .reduce((acc, i) => acc + (Number(i.total_amount) || 0), 0);
       return {
         vendorName: v.name,
         category: v.category,
-        orderCount: vOrders.length,
-        totalSpend: vSpend,
+        orderCount: vOrders.length + externalInvoices.filter(i => i.vendor_id === v.id).length,
+        totalSpend: vPOSpend + vExtSpend,
         onTimeRate: '100%',
         score: Number(v.score) || 100
       };
@@ -100,7 +131,7 @@ export const reportApi = {
         totalSpend,
         activeVendorsCount: vendors.filter(v => v.status === 'Approved').length,
         avgOnTimeDelivery: `${avgOnTimeDelivery}%`,
-        totalPOProcessed: purchaseOrders.length
+        totalPOProcessed: purchaseOrders.length + externalInvoices.length // include external invoices in count
       },
       monthlySpendTrend,
       categorySpend,

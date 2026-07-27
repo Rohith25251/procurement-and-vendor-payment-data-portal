@@ -1,23 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import { paymentApi } from '../../api/paymentApi';
 import { invoiceApi } from '../../api/invoiceApi';
+import { vendorApi } from '../../api/vendorApi';
 import { SearchFilterBar } from '../../components/common/SearchFilterBar';
 import { TableSkeleton } from '../../components/common/LoadingSkeleton';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { Modal } from '../../components/common/Modal';
+import { InvoiceOCRModal } from '../../components/ocr/InvoiceOCRModal';
 import { useToast } from '../../context/ToastContext';
 import { 
-  CreditCard, IndianRupee, Wallet, CheckCircle, Clock, ShieldCheck, ArrowRight 
+  CreditCard, IndianRupee, Wallet, CheckCircle, ScanLine
 } from 'lucide-react';
 
 export const ManagerPayments = () => {
   const [invoicesReady, setInvoicesReady] = useState([]);
   const [paymentsList, setPaymentsList] = useState([]);
+  const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [selectedReceipt, setSelectedReceipt] = useState(null);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
+
+  // OCR Upload Modal
+  const [isOCRModalOpen, setIsOCRModalOpen] = useState(false);
 
   // Payment Processing Modal
   const [selectedInvoice, setSelectedInvoice] = useState(null);
@@ -34,15 +40,18 @@ export const ManagerPayments = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [allInvoices, payments] = await Promise.all([
+      const [allInvoices, payments, allVendors] = await Promise.all([
         invoiceApi.getInvoices(),
-        paymentApi.getPayments()
+        paymentApi.getPayments(),
+        vendorApi.getVendors()
       ]);
 
       // Submitted or partially paid invoices ready for payment
       const ready = allInvoices.filter(i => i.status === 'Submitted' || i.status === 'Partially Paid');
       setInvoicesReady(ready);
       setPaymentsList(payments);
+      // All registered vendors available for selection in OCR modal
+      setVendors(allVendors);
     } catch (err) {
       showToast('Failed to load payment data', 'error');
     } finally {
@@ -53,6 +62,18 @@ export const ManagerPayments = () => {
   useEffect(() => {
     loadData();
   }, []);
+
+  // Handle OCR-scanned invoice registration
+  const handleOCRRegister = async (invoiceData) => {
+    try {
+      await invoiceApi.submitInvoice(invoiceData, 'Manager (OCR Upload)');
+      showToast(`Invoice ${invoiceData.invoiceNumber} registered successfully from OCR scan!`, 'success');
+      loadData();
+    } catch (err) {
+      showToast(err.message || 'Failed to register OCR invoice', 'error');
+      throw err; // re-throw so modal can show error state
+    }
+  };
 
   const openProcessModal = (invoice) => {
     setSelectedInvoice(invoice);
@@ -104,12 +125,22 @@ export const ManagerPayments = () => {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
-          <CreditCard className="w-7 h-7 text-primary-600" />
-          Disbursement & Payment Processing
-        </h1>
-        <p className="text-xs text-slate-500 mt-1">Disburse payments for verified invoices, track partial installments & balance ledgers</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+            <CreditCard className="w-7 h-7 text-primary-600" />
+            Disbursement & Payment Processing
+          </h1>
+          <p className="text-xs text-slate-500 mt-1">Disburse payments for verified invoices, track partial installments & balance ledgers</p>
+        </div>
+        <button
+          id="upload-invoice-ocr-btn"
+          onClick={() => setIsOCRModalOpen(true)}
+          className="flex-shrink-0 inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-bold rounded-xl shadow-lg shadow-emerald-200/50 transition-all duration-200 text-sm"
+        >
+          <ScanLine className="w-4 h-4" />
+          Upload Invoice PDF (OCR)
+        </button>
       </div>
 
       {/* Verified Queue Ready for Payment */}
@@ -360,6 +391,14 @@ export const ManagerPayments = () => {
           </div>
         )}
       </Modal>
+
+      {/* OCR Invoice Upload Modal */}
+      <InvoiceOCRModal
+        isOpen={isOCRModalOpen}
+        onClose={() => setIsOCRModalOpen(false)}
+        vendors={vendors}
+        onRegister={handleOCRRegister}
+      />
     </div>
   );
 };
