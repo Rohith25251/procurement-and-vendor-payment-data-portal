@@ -195,8 +195,10 @@ export const invoiceApi = {
     // 2. Resolve PO (auto-create linked PO for external invoices)
     let finalPoId = invoiceData.poId;
     let finalPoNumber = invoiceData.poNumber || 'EXTERNAL';
+    let isExternalInvoice = false;
 
     if (!finalPoId) {
+      isExternalInvoice = true;
       // Auto-create a dummy PO to store items for external invoices
       try {
         const po = await orderApi.createOrder({
@@ -218,6 +220,22 @@ export const invoiceApi = {
         
         finalPoId = po.id;
         finalPoNumber = po.poNumber;
+
+        // Immediately update this PO's status to 'Paid' and update history
+        const timestamp = new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const updatedHistory = [
+          { status: 'Invoice Requested', timestamp, actor: 'System' },
+          { status: 'Paid', timestamp, actor: 'System' }
+        ];
+
+        await supabase
+          .from('purchase_orders')
+          .update({
+            status: 'Paid',
+            history: updatedHistory
+          })
+          .eq('id', finalPoId);
+
       } catch (e) {
         console.error("Failed to auto-create PO for external invoice", e);
         throw e;
@@ -232,9 +250,9 @@ export const invoiceApi = {
       vendor_id: finalVendorId,
       vendor_name: invoiceData.vendorName,
       total_amount: invoiceData.totalAmount,
-      paid_amount: 0.00,
-      remaining_balance: invoiceData.totalAmount,
-      status: 'Submitted',
+      paid_amount: isExternalInvoice ? invoiceData.totalAmount : 0.00,
+      remaining_balance: isExternalInvoice ? 0.00 : invoiceData.totalAmount,
+      status: isExternalInvoice ? 'Paid' : 'Submitted',
       submitted_at: nowFormatted,
       pdf_url: invoiceData.pdfUrl || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
     };
@@ -246,25 +264,54 @@ export const invoiceApi = {
 
     if (invError) throw invError;
 
-    // Update PO status to "Invoice Submitted"
-    if (finalPoId) {
+    // For external invoices, also auto-create a Payment record immediately so it appears under paid category and is included in analytics / spend trend
+    if (isExternalInvoice) {
       try {
-        const po = await orderApi.getOrderById(finalPoId);
-        const history = po.history || [];
-        const updatedHistory = [...history, { status: 'Invoice Submitted', timestamp: nowFormatted, actor: `${vendorName} (Vendor)` }];
+        const todayDate = new Date().toISOString().split('T')[0];
+        const dbPayment = {
+          id: `pmt_${Date.now()}`,
+          invoice_id: dbInvoice.id,
+          invoice_number: dbInvoice.invoice_number,
+          po_id: finalPoId,
+          po_number: finalPoNumber,
+          vendor_id: finalVendorId,
+          vendor_name: invoiceData.vendorName,
+          amount_paid: invoiceData.totalAmount,
+          running_balance: 0.00,
+          payment_method: 'Direct Transfer',
+          reference_number: `REF-AUTO-${Math.floor(100000 + Math.random() * 900000)}`,
+          payment_date: todayDate,
+          status: 'Paid',
+          is_external: true,
+          notes: `Auto-recorded payment for uploaded external invoice #${invoiceData.invoiceNumber}`
+        };
 
         await supabase
-          .from('purchase_orders')
-          .update({
-            status: 'Invoice Submitted',
-            history: updatedHistory
-          })
-          .eq('id', finalPoId);
-      } catch (e) {
-        console.error("Failed to update PO status on invoice submit", e);
+          .from('payments')
+          .insert(dbPayment);
+      } catch (payError) {
+        console.error("Failed to auto-create payment record for external invoice", payError);
+      }
+    } else {
+      // Update PO status to "Invoice Submitted" for non-external POs
+      if (finalPoId) {
+        try {
+          const po = await orderApi.getOrderById(finalPoId);
+          const history = po.history || [];
+          const updatedHistory = [...history, { status: 'Invoice Submitted', timestamp: nowFormatted, actor: `${vendorName} (Vendor)` }];
+
+          await supabase
+            .from('purchase_orders')
+            .update({
+              status: 'Invoice Submitted',
+              history: updatedHistory
+            })
+            .eq('id', finalPoId);
+        } catch (e) {
+          console.error("Failed to update PO status on invoice submit", e);
+        }
       }
     }
-
 
     const mapped = mapDBToInvoice(data[0]);
     if (invoiceData.items) {

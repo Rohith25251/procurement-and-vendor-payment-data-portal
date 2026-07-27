@@ -63,12 +63,14 @@ export const PODetailPage = () => {
       </div>
 
       {/* Order Status Stepper */}
-      <OrderStatusTracker
-        currentStatus={po.status}
-        history={po.history}
-        queryComment={po.queryComment}
-        rejectionReason={po.rejectionReason}
-      />
+      {!(po.notes && po.notes.includes('Auto-generated for External Invoice')) && (
+        <OrderStatusTracker
+          currentStatus={po.status}
+          history={po.history}
+          queryComment={po.queryComment}
+          rejectionReason={po.rejectionReason}
+        />
+      )}
 
       {/* Details Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

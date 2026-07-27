@@ -171,12 +171,14 @@ export const VendorOrders = () => {
       <Modal isOpen={isTrackModalOpen} onClose={() => setIsTrackModalOpen(false)} title={`Order Lifecycle: ${selectedPO?.poNumber}`} maxWidth="max-w-4xl">
         {selectedPO && (
           <div className="space-y-4">
-            <OrderStatusTracker
-              currentStatus={selectedPO.status}
-              history={selectedPO.history}
-              queryComment={selectedPO.queryComment}
-              rejectionReason={selectedPO.rejectionReason}
-            />
+            {!(selectedPO.notes && selectedPO.notes.includes('Auto-generated for External Invoice')) && (
+              <OrderStatusTracker
+                currentStatus={selectedPO.status}
+                history={selectedPO.history}
+                queryComment={selectedPO.queryComment}
+                rejectionReason={selectedPO.rejectionReason}
+              />
+            )}
 
             <div className="p-4 bg-slate-50 rounded-xl space-y-2 text-xs">
               <h4 className="font-bold text-slate-900">Line Items</h4>
