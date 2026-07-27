@@ -48,6 +48,7 @@ Return a JSON object matching this schema:
   "poReference": "string",
   "gstin": "string",
   "vendorName": "string",
+  "category": "string (classify the invoice into exactly one of: 'Software / SaaS (Software as a Service)', 'IT & Software Licensing', 'Cybersecurity / IT Security', 'Office & Computer IT Expenses')",
   "items": [
     {
       "description": "string",
@@ -60,6 +61,7 @@ Return a JSON object matching this schema:
   ]
 }
 Return ONLY the raw JSON object. Do not wrap it in markdown blocks.`;
+
 
   if (geminiKey) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${geminiKey}`;
@@ -749,6 +751,7 @@ export const InvoiceOCRModal = ({ isOpen, onClose, vendors = [], onRegister }) =
   const [fields, setFields] = useState({
     invoiceNumber: '', invoiceDate: '', totalAmount: '',
     vendorId: '', vendorName: '', gstin: '', poReference: '', notes: '', items: [],
+    category: 'Software / SaaS (Software as a Service)',
   });
 
   const fileInputRef = useRef(null);
@@ -759,7 +762,11 @@ export const InvoiceOCRModal = ({ isOpen, onClose, vendors = [], onRegister }) =
     setStage('idle'); setOcrProgress(0); setOcrStatus(''); setErrorMessage('');
     setPreviewImageUrl(null); setRawText(''); setExtractedVendorHint('');
     setIsDigitalPDF(true);
-    setFields({ invoiceNumber: '', invoiceDate: '', totalAmount: '', vendorId: '', vendorName: '', gstin: '', poReference: '', notes: '', items: [] });
+    setFields({
+      invoiceNumber: '', invoiceDate: '', totalAmount: '',
+      vendorId: '', vendorName: '', gstin: '', poReference: '', notes: '', items: [],
+      category: 'Software / SaaS (Software as a Service)',
+    });
     setRegistering(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -807,6 +814,7 @@ export const InvoiceOCRModal = ({ isOpen, onClose, vendors = [], onRegister }) =
       let gstin = '';
       let poRef = '';
       let vendorHint = '';
+      let categoryVal = 'Software / SaaS (Software as a Service)';
 
       if (useLLM) {
         setOcrStatus('Processing invoice with AI OCR…');
@@ -821,6 +829,7 @@ export const InvoiceOCRModal = ({ isOpen, onClose, vendors = [], onRegister }) =
         poRef = res.poReference || '';
         gstin = res.gstin || '';
         vendorHint = res.vendorName || '';
+        categoryVal = res.category || 'Software / SaaS (Software as a Service)';
         lineItems = (res.items || []).map(i => ({
           description: i.description || '',
           quantity: Number(i.quantity) || 1,
@@ -830,7 +839,7 @@ export const InvoiceOCRModal = ({ isOpen, onClose, vendors = [], onRegister }) =
           total: Number(i.total) || 0
         }));
         
-        rawExtracted = `AI Extraction:\nVendor: ${vendorHint}\nInvoice #: ${invNum}\nDate: ${invDate}\nTotal: ₹${totalAmt}\n\nLine Items:\n` + 
+        rawExtracted = `AI Extraction:\nVendor: ${vendorHint}\nCategory: ${categoryVal}\nInvoice #: ${invNum}\nDate: ${invDate}\nTotal: ₹${totalAmt}\n\nLine Items:\n` + 
           lineItems.map(i => `${i.description} | Qty: ${i.quantity} | Price: ₹${i.unitPrice} | Tax: ${i.taxRate}% (₹${i.taxAmount}) | Total: ₹${i.total}`).join('\n');
       } else {
         setOcrStatus('Reading PDF text content…');
@@ -907,10 +916,12 @@ export const InvoiceOCRModal = ({ isOpen, onClose, vendors = [], onRegister }) =
         poReference:   poRef,
         notes:         useLLM ? '' : (isDigitalPDF ? '' : '(Scanned PDF — please verify extracted data)'),
         items:         lineItems,
+        category:      categoryVal,
       });
 
       setOcrProgress(100);
       setStage('preview');
+
 
     } catch (err) {
       console.error('PDF extraction error:', err);
@@ -935,6 +946,7 @@ export const InvoiceOCRModal = ({ isOpen, onClose, vendors = [], onRegister }) =
         items:         fields.items,
         pdfUrl:        null,
         notes:         `${fields.notes}${fields.gstin ? ` | GSTIN: ${fields.gstin}` : ''}`.trim(),
+        category:      fields.category,
       });
       reset(); onClose();
     } catch (err) {
@@ -942,6 +954,7 @@ export const InvoiceOCRModal = ({ isOpen, onClose, vendors = [], onRegister }) =
       setStage('error');
     } finally { setRegistering(false); }
   };
+
 
   const updateItem = (idx, key, val) => {
     setFields(f => {
@@ -1095,30 +1108,8 @@ export const InvoiceOCRModal = ({ isOpen, onClose, vendors = [], onRegister }) =
             </div>
           )}
 
-          {/* Vendor selection row */}
+          {/* Vendor Name & Invoice Category Row */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="flex items-center gap-1.5 text-[10px] font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
-                <Building2 className="w-3 h-3 text-slate-400" />Link Registered Vendor
-              </label>
-              <div className="relative">
-                <select
-                  value={fields.vendorId}
-                  onChange={e => {
-                    const val = e.target.value;
-                    const v = vendors.find(v => v.id === val);
-                    setFields(f => ({ ...f, vendorId: val, vendorName: v ? v.name : f.vendorName }));
-                  }}
-                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 pr-8 font-semibold text-slate-800"
-                >
-                  <option value="">-- New / Unregistered Vendor --</option>
-                  {vendors.map(v => (
-                    <option key={v.id} value={v.id}>{v.name}{v.code ? ` (${v.code})` : ''}</option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-              </div>
-            </div>
             <div>
               <label className="flex items-center gap-1.5 text-[10px] font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
                 <Building2 className="w-3 h-3 text-slate-400" />Vendor Name *
@@ -1126,15 +1117,32 @@ export const InvoiceOCRModal = ({ isOpen, onClose, vendors = [], onRegister }) =
               <input
                 type="text"
                 value={fields.vendorName}
-                onChange={e => setFields(f => ({ ...f, vendorName: e.target.value }))}
+                onChange={e => {
+                  const val = e.target.value;
+                  const matched = vendors.find(v => v.name.toLowerCase() === val.trim().toLowerCase());
+                  setFields(f => ({ ...f, vendorName: val, vendorId: matched ? matched.id : '' }));
+                }}
                 placeholder="Enter vendor / supplier name"
-                disabled={!!fields.vendorId}
-                className={`w-full px-3 py-2.5 border rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 ${
-                  fields.vendorId
-                    ? 'bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed font-semibold'
-                    : 'bg-slate-50 border-slate-200 text-slate-800'
-                }`}
+                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 text-slate-800"
               />
+            </div>
+            <div>
+              <label className="flex items-center gap-1.5 text-[10px] font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                <Tag className="w-3 h-3 text-slate-400" />Invoice Category *
+              </label>
+              <div className="relative">
+                <select
+                  value={fields.category}
+                  onChange={e => setFields(f => ({ ...f, category: e.target.value }))}
+                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 pr-8 font-semibold text-slate-800"
+                >
+                  <option value="Software / SaaS (Software as a Service)">Software / SaaS (Software as a Service)</option>
+                  <option value="IT & Software Licensing">IT & Software Licensing</option>
+                  <option value="Cybersecurity / IT Security">Cybersecurity / IT Security</option>
+                  <option value="Office & Computer IT Expenses">Office & Computer IT Expenses</option>
+                </select>
+                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              </div>
             </div>
           </div>
           {selectedVendor && (
@@ -1142,6 +1150,7 @@ export const InvoiceOCRModal = ({ isOpen, onClose, vendors = [], onRegister }) =
               <VendorCard vendor={selectedVendor} />
             </div>
           )}
+
 
           {/* Notes */}
           <div>
