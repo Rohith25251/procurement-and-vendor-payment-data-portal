@@ -24,7 +24,11 @@ function parseNum(s) {
 
 function isPrice(s) {
   const clean = s.trim().replace(/^(?:₹|Rs\.?|INR)\s*/i, '').replace(/,/g, '');
-  return /^\d+(?:\.\d{1,2})?$/.test(clean);
+  if (!/^\d+(?:\.\d{1,2})?$/.test(clean)) return false;
+  const hasDecimal = clean.includes('.');
+  const hasCurrency = /^(?:₹|Rs\.?|INR)/i.test(s.trim());
+  const val = parseFloat(clean);
+  return hasDecimal || hasCurrency || val >= 100;
 }
 
 /**
