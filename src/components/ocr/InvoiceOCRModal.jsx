@@ -24,7 +24,7 @@ function parseNum(s) {
 
 function isPrice(s) {
   const clean = s.trim().replace(/^(?:₹|Rs\.?|INR)\s*/i, '').replace(/,/g, '');
-  if (!/^\d+(?:\.\d{1,2})?$/.test(clean)) return false;
+  if (!/^\d+(?:\.\d+)?$/.test(clean)) return false;
   const hasDecimal = clean.includes('.');
   const hasCurrency = /^(?:₹|Rs\.?|INR)/i.test(s.trim());
   const val = parseFloat(clean);
@@ -465,10 +465,10 @@ function extractLineItems(rows, rawText) {
         items.push({
           description: (cleanedDesc.length >= 2 ? cleanedDesc : desc).slice(0, 100),
           quantity:    finalQty,
-          unitPrice:   finalUnitPrice,
+          unitPrice:   Math.round(finalUnitPrice * 100) / 100,
           taxRate,
           taxAmount,
-          total:       finalTotal,
+          total:       Math.round(finalTotal * 100) / 100,
         });
       }
     }
@@ -506,10 +506,10 @@ function extractLineItems(rows, rawText) {
       items.push({
         description: cleanDesc(desc) || desc,
         quantity:    qty,
-        unitPrice,
+        unitPrice:   Math.round(unitPrice * 100) / 100,
         taxRate,
         taxAmount,
-        total
+        total:       Math.round(total * 100) / 100
       });
     }
   }
@@ -534,10 +534,10 @@ function extractLineItems(rows, rawText) {
           items.push({
             description: cleanDesc(desc) || desc,
             quantity:    qty,
-            unitPrice,
+            unitPrice:   Math.round(unitPrice * 100) / 100,
             taxRate,
             taxAmount,
-            total
+            total:       Math.round(total * 100) / 100
           });
         }
       }
