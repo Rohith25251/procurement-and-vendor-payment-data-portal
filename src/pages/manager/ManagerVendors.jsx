@@ -7,7 +7,7 @@ import { Modal } from '../../components/common/Modal';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { useToast } from '../../context/ToastContext';
 import { 
-  Users, UserPlus, Star, CheckCircle, XCircle, Eye, Edit, Power, Building2, Phone, Mail 
+  Users, UserPlus, Star, CheckCircle, XCircle, Eye, Edit, Power, Building2, Phone, Mail, Copy, KeyRound
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -23,6 +23,7 @@ export const ManagerVendors = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedVendor, setSelectedVendor] = useState(null);
   const [rejectDialog, setRejectDialog] = useState({ open: false, vendorId: null });
+  const [credentialsModal, setCredentialsModal] = useState({ open: false, email: '', password: '' });
 
   // Form State
   const [formData, setFormData] = useState({
@@ -57,8 +58,14 @@ export const ManagerVendors = () => {
 
   const handleApprove = async (id) => {
     try {
-      await vendorApi.approveVendor(id);
+      const result = await vendorApi.approveVendor(id);
       showToast('Vendor registration approved successfully', 'success');
+      // Show the login credentials to the manager
+      setCredentialsModal({
+        open: true,
+        email: result.loginEmail,
+        password: result.loginPassword,
+      });
       fetchVendors();
     } catch (err) {
       showToast('Action failed', 'error');
@@ -400,7 +407,7 @@ export const ManagerVendors = () => {
         <form onSubmit={handleEditSubmit} className="space-y-4 text-xs">
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
-              <label className="block font-semibold text-slate-700 mb-1">Company Name</label>
+              <label className="block font-semibold text-slate-700 mb-1">Company Full Name *</label>
               <input
                 type="text"
                 required
@@ -410,7 +417,21 @@ export const ManagerVendors = () => {
               />
             </div>
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">Contact Person</label>
+              <label className="block font-semibold text-slate-700 mb-1">Category *</label>
+              <select
+                value={formData.category}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                className="w-full p-2.5 bg-slate-50 border rounded-xl font-medium"
+              >
+                <option value="Hardware & Raw Materials">Hardware & Raw Materials</option>
+                <option value="IT & Software Services">IT & Software Services</option>
+                <option value="Facilities & Operations">Facilities & Operations</option>
+                <option value="Packaging & Materials">Packaging & Materials</option>
+                <option value="Logistics & Transport">Logistics & Transport</option>
+              </select>
+            </div>
+            <div>
+              <label className="block font-semibold text-slate-700 mb-1">Contact Person *</label>
               <input
                 type="text"
                 required
@@ -420,12 +441,49 @@ export const ManagerVendors = () => {
               />
             </div>
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">Email</label>
+              <label className="block font-semibold text-slate-700 mb-1">Email *</label>
               <input
                 type="email"
                 required
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                className="w-full p-2.5 bg-slate-50 border rounded-xl"
+              />
+            </div>
+            <div>
+              <label className="block font-semibold text-slate-700 mb-1">Phone *</label>
+              <input
+                type="text"
+                required
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                className="w-full p-2.5 bg-slate-50 border rounded-xl"
+              />
+            </div>
+            <div>
+              <label className="block font-semibold text-slate-700 mb-1">GSTIN</label>
+              <input
+                type="text"
+                value={formData.gstin}
+                onChange={(e) => setFormData({ ...formData, gstin: e.target.value })}
+                className="w-full p-2.5 bg-slate-50 border rounded-xl"
+              />
+            </div>
+            <div>
+              <label className="block font-semibold text-slate-700 mb-1">PAN</label>
+              <input
+                type="text"
+                value={formData.pan}
+                onChange={(e) => setFormData({ ...formData, pan: e.target.value })}
+                className="w-full p-2.5 bg-slate-50 border rounded-xl"
+              />
+            </div>
+            <div className="col-span-2">
+              <label className="block font-semibold text-slate-700 mb-1">Address</label>
+              <textarea
+                rows={2}
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                 className="w-full p-2.5 bg-slate-50 border rounded-xl"
               />
             </div>
@@ -452,6 +510,63 @@ export const ManagerVendors = () => {
         requireReason={true}
         reasonPlaceholder="e.g. Incomplete tax compliance documentation"
       />
+
+      {/* Credentials Modal — shown after vendor approval */}
+      {credentialsModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-sm p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2.5 rounded-xl bg-emerald-100 text-emerald-600">
+                <KeyRound className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Vendor Login Credentials</h3>
+                <p className="text-xs text-slate-500">Share these with the vendor so they can log in</p>
+              </div>
+            </div>
+
+            <div className="space-y-3 mb-5">
+              <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Email</p>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-mono font-semibold text-slate-800 break-all">{credentialsModal.email}</span>
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(credentialsModal.email); showToast('Email copied!', 'success'); }}
+                    className="p-1.5 text-slate-400 hover:text-slate-700 flex-shrink-0"
+                    title="Copy email"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+              <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Password</p>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-mono font-semibold text-slate-800">{credentialsModal.password}</span>
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(credentialsModal.password); showToast('Password copied!', 'success'); }}
+                    className="p-1.5 text-slate-400 hover:text-slate-700 flex-shrink-0"
+                    title="Copy password"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-5">
+              <p className="text-xs text-amber-700">⚠️ Save these credentials now — the password won't be shown again.</p>
+            </div>
+
+            <button
+              onClick={() => setCredentialsModal({ open: false, email: '', password: '' })}
+              className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm rounded-xl transition-colors"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

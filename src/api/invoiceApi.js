@@ -1,5 +1,6 @@
 import { supabase } from '../supabaseClient';
 import { orderApi } from './orderApi';
+import { notificationApi } from './notificationApi';
 
 const mapDBToInvoice = (inv) => {
   if (!inv) return null;
@@ -22,7 +23,8 @@ const mapDBToInvoice = (inv) => {
       fileSize: '1.2 MB',
       url: inv.pdf_url || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
     },
-    items: []
+    items: [],
+    vendorGstin: inv.vendor_gstin || null
   };
 };
 
@@ -33,6 +35,18 @@ export const invoiceApi = {
       .select('*')
       .order('invoice_number', { ascending: false });
     if (invError) throw invError;
+
+    // Fetch vendors to get GSTIN
+    const { data: vendors, error: vendorError } = await supabase
+      .from('vendors')
+      .select('id, gstin');
+    
+    const vendorGstinMap = {};
+    if (!vendorError && vendors) {
+      vendors.forEach(v => {
+        vendorGstinMap[v.id] = v.gstin;
+      });
+    }
 
     const { data: pos, error: poError } = await supabase
       .from('purchase_orders')
@@ -48,6 +62,7 @@ export const invoiceApi = {
 
     return invoices.map(inv => {
       const mapped = mapDBToInvoice(inv);
+      mapped.vendorGstin = vendorGstinMap[inv.vendor_id] || null;
       mapped.items = (poItemsMap[inv.po_id] || []).map(i => ({
         description: i.name || i.description,
         quantity: i.quantity,
@@ -68,6 +83,18 @@ export const invoiceApi = {
 
     const inv = invoices[0];
     const mapped = mapDBToInvoice(inv);
+
+    try {
+      const { data: vendorData } = await supabase
+        .from('vendors')
+        .select('gstin')
+        .eq('id', inv.vendor_id);
+      if (vendorData && vendorData.length > 0) {
+        mapped.vendorGstin = vendorData[0].gstin;
+      }
+    } catch (e) {
+      console.warn('Failed to fetch vendor GSTIN for invoice', e);
+    }
 
     try {
       const po = await orderApi.getOrderById(inv.po_id);
@@ -152,44 +179,7 @@ export const invoiceApi = {
     }
 
     if (!finalVendorId && invoiceData.vendorName) {
-      try {
-        const newVendorId = `vnd_custom_${Date.now()}`;
-        const newUserId = `usr_vnd_${Date.now()}`;
-        const cleanName = invoiceData.vendorName.trim();
-        const shortName = cleanName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'vendor';
-        
-        const dbVendor = {
-          id: newVendorId,
-          user_id: newUserId,
-          name: cleanName,
-          code: `VND-CST-${Math.floor(100 + Math.random() * 900)}`,
-          contact_person: 'Finance Dept',
-          email: `${shortName}@example.com`,
-          phone: '+91 98765 43210',
-          category: invoiceData.category || 'Software / SaaS (Software as a Service)',
-          status: 'Approved',
-          score: 100,
-          address: 'Main Office Address',
-          joined_date: new Date().toISOString().split('T')[0]
-        };
-
-        const { data: vData, error: vError } = await supabase
-          .from('vendors')
-          .insert(dbVendor)
-          .select('*');
-
-        if (vError) {
-          console.error("Failed to insert auto-created vendor:", vError);
-          throw vError;
-        }
-        
-        if (vData && vData[0]) {
-          finalVendorId = vData[0].id;
-        }
-      } catch (e) {
-        console.error("Failed to auto-create vendor record", e);
-        throw new Error(`Failed to register vendor: ${e.message || e}`);
-      }
+      console.warn(`No matching vendor found for "${invoiceData.vendorName}". Creating invoice without vendor link — vendor name stored as text only.`);
     }
 
     // 2. Resolve PO (auto-create linked PO for external invoices)
@@ -317,6 +307,20 @@ export const invoiceApi = {
     if (invoiceData.items) {
       mapped.items = invoiceData.items;
     }
+
+    // Trigger Live Notification for Manager
+    try {
+      await notificationApi.createNotification({
+        recipientRole: 'manager',
+        title: 'New Invoice Submitted',
+        message: `${invoiceData.vendorName} submitted Invoice ${invoiceData.invoiceNumber} for PO ${finalPoNumber}.`,
+        type: 'invoice_status',
+        link: '/manager/invoices'
+      });
+    } catch (notifErr) {
+      console.warn('Failed to send manager invoice submission notification', notifErr);
+    }
+
     return mapped;
   },
 
@@ -354,6 +358,20 @@ export const invoiceApi = {
       }
     }
 
+    // Trigger Live Notification for Vendor
+    try {
+      await notificationApi.createNotification({
+        recipientRole: 'vendor',
+        vendorId: inv.vendor_id,
+        title: 'Invoice Verified',
+        message: `Your Invoice ${inv.invoice_number} has been verified by the manager and queued for payment.`,
+        type: 'invoice_status',
+        link: '/vendor/invoices'
+      });
+    } catch (notifErr) {
+      console.warn('Failed to send vendor invoice verification notification', notifErr);
+    }
+
     return mapDBToInvoice(inv);
   },
 
@@ -368,6 +386,22 @@ export const invoiceApi = {
       .select('*');
 
     if (error) throw error;
-    return mapDBToInvoice(data[0]);
+    const inv = data[0];
+
+    // Trigger Live Notification for Vendor
+    try {
+      await notificationApi.createNotification({
+        recipientRole: 'vendor',
+        vendorId: inv.vendor_id,
+        title: 'Invoice Rejected',
+        message: `Your Invoice ${inv.invoice_number} has been rejected. Reason: ${reason || 'Does not match terms'}`,
+        type: 'invoice_status',
+        link: '/vendor/invoices'
+      });
+    } catch (notifErr) {
+      console.warn('Failed to send vendor invoice rejection notification', notifErr);
+    }
+
+    return mapDBToInvoice(inv);
   }
 };

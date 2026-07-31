@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
-import { supabase } from '../../supabaseClient';
+import { storageApi } from '../../api/storageApi';
 import { 
   User, Mail, Lock, KeyRound, Save, ShieldCheck, Building2, CheckCircle2, Upload 
 } from 'lucide-react';
@@ -25,25 +25,15 @@ export const ManagerProfile = () => {
     const file = e.target.files[0];
     if (!file) return;
 
-    if (file.size > 2 * 1024 * 1024) {
-      showToast('File size must be under 2MB', 'warning');
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('File size must be under 5MB', 'warning');
       return;
     }
 
     setUploading(true);
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `avatars/${user.id}-${Date.now()}.${fileExt}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('product-images')
-        .upload(fileName, file, { cacheControl: '3600', upsert: true });
-
-      if (uploadError) throw uploadError;
-
-      const { data: publicUrlData } = supabase.storage.from('product-images').getPublicUrl(fileName);
-      const publicUrl = publicUrlData.publicUrl;
-
+      // Uploads to: profile-images/managers/{managerId}/avatar.{ext}
+      const publicUrl = await storageApi.uploadManagerAvatar(file, user.id);
       await updateProfile({ avatar: publicUrl });
       showToast('Profile picture uploaded successfully!', 'success');
     } catch (err) {

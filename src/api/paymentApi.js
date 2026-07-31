@@ -1,6 +1,7 @@
 import { supabase } from '../supabaseClient';
 import { orderApi } from './orderApi';
 import { invoiceApi } from './invoiceApi';
+import { notificationApi } from './notificationApi';
 
 const mapDBToPayment = (p) => {
   if (!p) return null;
@@ -103,6 +104,20 @@ export const paymentApi = {
       } catch (e) {
         console.error("Failed to update PO status to Paid", e);
       }
+    }
+
+    // Trigger Live Notification for Vendor
+    try {
+      await notificationApi.createNotification({
+        recipientRole: 'vendor',
+        vendorId: invoice.vendorId,
+        title: isFullyPaid ? 'Payment Received (Full)' : 'Payment Received (Partial)',
+        message: `Payment of ₹${amountToPay.toLocaleString('en-IN')} has been processed for Invoice ${invoice.invoiceNumber}.`,
+        type: 'payment_status',
+        link: '/vendor/payments'
+      });
+    } catch (notifErr) {
+      console.warn('Failed to send vendor payment notification', notifErr);
     }
 
     return mapDBToPayment(pmtData[0]);

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { vendorApi } from '../../api/vendorApi';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
-import { supabase } from '../../supabaseClient';
+import { storageApi } from '../../api/storageApi';
 import { TableSkeleton } from '../../components/common/LoadingSkeleton';
 import { 
   Building2, Mail, Phone, MapPin, ShieldCheck, Upload, FileText, Save, KeyRound, Lock 
@@ -20,25 +20,15 @@ export const VendorProfile = () => {
     const file = e.target.files[0];
     if (!file) return;
 
-    if (file.size > 2 * 1024 * 1024) {
-      showToast('File size must be under 2MB', 'warning');
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('File size must be under 5MB', 'warning');
       return;
     }
 
     setUploading(true);
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `avatars/${user.id}-${Date.now()}.${fileExt}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('product-images')
-        .upload(fileName, file, { cacheControl: '3600', upsert: true });
-
-      if (uploadError) throw uploadError;
-
-      const { data: publicUrlData } = supabase.storage.from('product-images').getPublicUrl(fileName);
-      const publicUrl = publicUrlData.publicUrl;
-
+      // Uploads to: profile-images/vendors/{vendorId}/avatar.{ext}
+      const publicUrl = await storageApi.uploadVendorAvatar(file, user.vendorId || user.id);
       await updateProfile({ avatar: publicUrl });
       showToast('Profile picture updated successfully!', 'success');
     } catch (err) {

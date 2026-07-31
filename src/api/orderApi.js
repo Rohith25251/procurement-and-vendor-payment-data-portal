@@ -1,4 +1,5 @@
 import { supabase } from '../supabaseClient';
+import { notificationApi } from './notificationApi';
 
 const mapDBToPO = (po) => {
   if (!po) return null;
@@ -105,6 +106,21 @@ export const orderApi = {
       .select('*');
 
     if (error) throw error;
+
+    // Trigger Live Notification for Vendor
+    try {
+      await notificationApi.createNotification({
+        recipientRole: 'vendor',
+        vendorId: orderData.vendorId,
+        title: 'New PO Received',
+        message: `You have received a new Purchase Order request ${poNumber} for ₹${Number(orderData.totalAmount).toLocaleString('en-IN')}.`,
+        type: 'po_status',
+        link: '/vendor/invoices'
+      });
+    } catch (notifErr) {
+      console.warn('Failed to send vendor PO notification', notifErr);
+    }
+
     return mapDBToPO(data[0]);
   },
 
@@ -162,6 +178,20 @@ export const orderApi = {
       .select('*');
 
     if (error) throw error;
+
+    // Trigger Live Notification for Manager
+    try {
+      await notificationApi.createNotification({
+        recipientRole: 'manager',
+        title: 'PO Accepted by Vendor',
+        message: `${vendorName} has accepted Purchase Order ${po.poNumber}.`,
+        type: 'po_status',
+        link: '/manager/procurement'
+      });
+    } catch (notifErr) {
+      console.warn('Failed to send manager PO accept notification', notifErr);
+    }
+
     return mapDBToPO(data[0]);
   },
 
@@ -180,6 +210,20 @@ export const orderApi = {
       .select('*');
 
     if (error) throw error;
+
+    // Trigger Live Notification for Manager
+    try {
+      await notificationApi.createNotification({
+        recipientRole: 'manager',
+        title: 'Vendor Query Raised',
+        message: `${vendorName} raised a query on PO ${po.poNumber}: "${comment}"`,
+        type: 'po_status',
+        link: '/manager/procurement'
+      });
+    } catch (notifErr) {
+      console.warn('Failed to send manager query notification', notifErr);
+    }
+
     return mapDBToPO(data[0]);
   },
 
@@ -283,6 +327,20 @@ export const orderApi = {
       .select('*');
 
     if (error) throw error;
+
+    // Trigger Live Notification for Manager
+    try {
+      await notificationApi.createNotification({
+        recipientRole: 'manager',
+        title: 'Shipment Out for Delivery',
+        message: `Vendor ${vendorName} has shipped PO ${po.poNumber}. It is now out for delivery.`,
+        type: 'po_status',
+        link: '/manager/procurement'
+      });
+    } catch (notifErr) {
+      console.warn('Failed to send manager PO delivery notification', notifErr);
+    }
+
     return mapDBToPO(data[0]);
   },
 
@@ -300,6 +358,54 @@ export const orderApi = {
       .select('*');
 
     if (error) throw error;
+
+    // Trigger Live Notification for Vendor
+    try {
+      await notificationApi.createNotification({
+        recipientRole: 'vendor',
+        vendorId: po.vendorId,
+        title: 'PO Delivery Confirmed',
+        message: `Manager has confirmed delivery for PO ${po.poNumber}. You can now submit your invoice.`,
+        type: 'po_status',
+        link: '/vendor/invoices'
+      });
+    } catch (notifErr) {
+      console.warn('Failed to send vendor PO delivery confirmation notification', notifErr);
+    }
+
     return mapDBToPO(data[0]);
+  },
+
+  updateOrder: async (id, orderData, managerName = 'Eleanor Vance') => {
+    const po = await orderApi.getOrderById(id);
+    const updatedHistory = addHistoryEntry(po, 'Updated PO Details', `${managerName} (Manager)`);
+
+    const dbData = {
+      expected_delivery_date: orderData.expectedDeliveryDate,
+      payment_terms: orderData.paymentTerms,
+      delivery_address: orderData.deliveryAddress,
+      notes: orderData.notes,
+      total_amount: Number(orderData.totalAmount),
+      items: orderData.items || [],
+      history: updatedHistory
+    };
+
+    const { data, error } = await supabase
+      .from('purchase_orders')
+      .update(dbData)
+      .eq('id', id)
+      .select('*');
+
+    if (error) throw error;
+    return mapDBToPO(data[0]);
+  },
+
+  deleteOrder: async (id) => {
+    const { error } = await supabase
+      .from('purchase_orders')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
+    return true;
   }
 };

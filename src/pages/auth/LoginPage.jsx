@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import {
   Lock, Mail, ArrowRight,
-  Building2, KeyRound, ArrowLeft, Zap
+  Building2, KeyRound, ArrowLeft, Zap, UserPlus
 } from 'lucide-react';
 
 export const LoginPage = () => {
@@ -171,6 +171,19 @@ export const LoginPage = () => {
               </button>
             </form>
 
+            {/* Vendor Sign-Up Link */}
+            <div className="mt-5 pt-5 border-t border-slate-100 text-center">
+              <p className="text-xs text-slate-500 mb-2">New vendor? Apply for portal access</p>
+              <button
+                id="goto-vendor-signup-btn"
+                onClick={() => navigate('/vendor/signup')}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100
+                           border border-emerald-200 text-emerald-700 text-xs font-bold transition-all duration-200"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                Register as a Vendor
+              </button>
+            </div>
 
           </div>
 

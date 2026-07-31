@@ -115,6 +115,7 @@ export const VendorInvoices = () => {
           <strong style="color: #94a3b8; text-transform: uppercase; font-size: 10px;">Issued By Vendor:</strong>
           <p style="font-weight: bold; color: #334155; margin: 5px 0 0 0; font-size: 13px;">${invoice.vendorName}</p>
           <p style="color: #64748b; margin: 2px 0 0 0; font-size: 12px;">Status: Active Partner</p>
+          ${invoice.vendorGstin ? `<p style="color: #64748b; margin: 2px 0 0 0; font-size: 12px; font-family: monospace;">GSTIN: <strong>${invoice.vendorGstin}</strong></p>` : ''}
         </div>
         <div>
           <strong style="color: #94a3b8; text-transform: uppercase; font-size: 10px;">Billed To Customer:</strong>
@@ -424,6 +425,9 @@ export const VendorInvoices = () => {
                   <strong className="text-slate-400 uppercase tracking-wider text-[10px]">Issued By Vendor:</strong>
                   <p className="font-bold text-slate-800 mt-1">{selectedInvoice.vendorName}</p>
                   <p className="text-slate-500">Status: Active Partner</p>
+                  {selectedInvoice.vendorGstin && (
+                    <p className="text-slate-500 mt-1 font-mono">GSTIN: <strong className="text-slate-700">{selectedInvoice.vendorGstin}</strong></p>
+                  )}
                 </div>
                 <div>
                   <strong className="text-slate-400 uppercase tracking-wider text-[10px]">Billed To Customer:</strong>
