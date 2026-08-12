@@ -115,10 +115,10 @@ export const ManagerDashboard = () => {
         <StatCard
           title="This Month's Spend"
           value={`₹${stats.monthlySpend.toLocaleString('en-IN')}`}
-          subtext="+12.4% vs last month"
+          subtext={stats.monthlySpend > 0 ? "+12.4% vs last month" : "No spend recorded yet"}
           icon={IndianRupee}
-          trend="up"
-          trendValue="12.4%"
+          trend={stats.monthlySpend > 0 ? "up" : undefined}
+          trendValue={stats.monthlySpend > 0 ? "12.4%" : undefined}
           color="blue"
         />
         <StatCard
@@ -237,25 +237,35 @@ export const ManagerDashboard = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700">
-              {recentOrders.map((po) => (
-                <tr key={po.id} className="hover:bg-slate-50/80 transition-colors">
-                  <td className="py-4 px-6 font-bold text-slate-900">{po.poNumber}</td>
-                  <td className="py-4 px-6 font-semibold">{po.vendorName}</td>
-                  <td className="py-4 px-6 text-slate-500">{po.category}</td>
-                  <td className="py-4 px-6 font-bold text-slate-900">₹{po.totalAmount.toLocaleString('en-IN')}</td>
-                  <td className="py-4 px-6">
-                    <StatusBadge status={po.status} />
-                  </td>
-                  <td className="py-4 px-6 text-right">
-                    <button
-                      onClick={() => navigate(`/manager/procurement/${po.id}`)}
-                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors"
-                    >
-                      Track Order
-                    </button>
+              {recentOrders.length === 0 ? (
+                <tr>
+                  <td colSpan="6" className="py-10 text-center text-slate-400">
+                    <ShoppingCart className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+                    <p className="font-bold text-slate-600 text-sm">No purchase orders placed yet</p>
+                    <p className="text-xs text-slate-400 mt-1">Click "New Purchase Order" above to issue your first order.</p>
                   </td>
                 </tr>
-              ))}
+              ) : (
+                recentOrders.map((po) => (
+                  <tr key={po.id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="py-4 px-6 font-bold text-slate-900">{po.poNumber}</td>
+                    <td className="py-4 px-6 font-semibold">{po.vendorName}</td>
+                    <td className="py-4 px-6 text-slate-500">{po.category}</td>
+                    <td className="py-4 px-6 font-bold text-slate-900">₹{po.totalAmount.toLocaleString('en-IN')}</td>
+                    <td className="py-4 px-6">
+                      <StatusBadge status={po.status} />
+                    </td>
+                    <td className="py-4 px-6 text-right">
+                      <button
+                        onClick={() => navigate(`/manager/procurement/${po.id}`)}
+                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors"
+                      >
+                        Track Order
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

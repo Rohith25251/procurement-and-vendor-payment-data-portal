@@ -25,7 +25,20 @@ export const notificationApi = {
       console.warn("Notifications query failed:", error.message);
       return [];
     }
-    return data.map(mapDBToNotification);
+    const procureSession = JSON.parse(localStorage.getItem('procure_session') || '{}');
+    const userRole = procureSession?.user?.role || 'manager';
+    const userVendorId = procureSession?.user?.vendorId;
+
+    const filtered = data.filter(n => {
+      if (userRole === 'manager') {
+        return n.recipient_role === 'manager' || n.recipient_role === 'organization' || n.recipient_role === 'all';
+      } else if (userRole === 'vendor') {
+        return (n.recipient_role === 'vendor' && (!n.vendor_id || n.vendor_id === userVendorId)) || n.recipient_role === 'all';
+      }
+      return true;
+    });
+
+    return filtered.map(mapDBToNotification);
   },
 
   markAsRead: async (id) => {

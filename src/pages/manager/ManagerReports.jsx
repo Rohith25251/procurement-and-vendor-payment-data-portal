@@ -80,7 +80,7 @@ export const ManagerReports = () => {
       </div>
 
       {/* Summary KPI Strip */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
         <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-soft">
           <p className="text-xs font-semibold uppercase text-slate-400">Total Year-To-Date Spend</p>
           <h3 className="text-2xl font-extrabold text-slate-900 mt-1">₹{reportData.summary.totalSpend.toLocaleString('en-IN')}</h3>
@@ -97,12 +97,6 @@ export const ManagerReports = () => {
           <p className="text-xs font-semibold uppercase text-slate-400">Active Vendor Partners</p>
           <h3 className="text-2xl font-extrabold text-primary-600 mt-1">{reportData.summary.activeVendorsCount}</h3>
           <p className="text-[11px] text-slate-500 font-medium mt-1">Approved & active</p>
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-soft">
-          <p className="text-xs font-semibold uppercase text-slate-400">Categories Monitored</p>
-          <h3 className="text-2xl font-extrabold text-purple-600 mt-1">4 Sectors</h3>
-          <p className="text-[11px] text-slate-500 font-medium mt-1">Hardware, IT, Logistics, Facilities</p>
         </div>
       </div>
 

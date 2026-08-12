@@ -4,6 +4,20 @@ export const authApi = {
   login: async (email, password) => {
     const normalizedEmail = email.toLowerCase().trim();
 
+    // 0. Super Admin accounts are blocked from logging into the Organization & Vendor Portal
+    if (normalizedEmail === 'admin@procurehub.com') {
+      throw new Error('Super Admin accounts must log in through the Super Admin Portal.');
+    }
+
+    const { data: superAdmins } = await supabase
+      .from('super_admins')
+      .select('id')
+      .eq('email', normalizedEmail);
+
+    if (superAdmins && superAdmins.length > 0) {
+      throw new Error('Super Admin accounts must log in through the Super Admin Portal.');
+    }
+
     // 1. Check the users table first (managers only)
     const { data: users, error: userError } = await supabase
       .from('users')
@@ -23,10 +37,40 @@ export const authApi = {
           name: user.name,
           email: user.email,
           role: 'manager',
-          department: user.department || null,
-          companyName: user.company_name || null,
+          department: user.department || 'Procurement',
+          companyName: user.company_name || 'KEC International',
           vendorId: null,
           avatar: user.avatar
+        },
+        token
+      };
+      localStorage.setItem('procure_session', JSON.stringify(session));
+      return session;
+    }
+
+    // 1b. Check organizations table for manager accounts
+    const { data: orgs } = await supabase
+      .from('organizations')
+      .select('*')
+      .eq('email', normalizedEmail)
+      .eq('status', 'Approved');
+
+    if (orgs && orgs.length > 0) {
+      const org = orgs[0];
+      if (org.password !== password) {
+        throw new Error('Invalid email or password. Please check your credentials.');
+      }
+      const token = `mock-jwt-token-${org.id}-${Date.now()}`;
+      const session = {
+        user: {
+          id: org.id,
+          name: org.contact_person || org.name,
+          email: org.email,
+          role: 'manager',
+          department: org.industry || 'Procurement',
+          companyName: org.company_name || org.name,
+          vendorId: null,
+          avatar: null
         },
         token
       };
@@ -188,6 +232,32 @@ export const authApi = {
       vendorId: null,
       avatar: updatedUserObj.avatar
     };
+  },
+
+  signupOrganization: async (formData) => {
+    const orgId = `org_${Date.now()}`;
+    const dbData = {
+      id: orgId,
+      name: formData.name,
+      company_name: formData.name,
+      contact_person: formData.contactPerson,
+      email: formData.email.toLowerCase().trim(),
+      phone: formData.phone,
+      industry: formData.industry,
+      gstin: formData.gstin ? formData.gstin.toUpperCase() : null,
+      address: formData.address || null,
+      password: formData.password,
+      status: 'Pending',
+      joined_date: new Date().toISOString().split('T')[0],
+    };
+
+    const { data, error } = await supabase
+      .from('organizations')
+      .insert(dbData)
+      .select('*');
+
+    if (error) throw error;
+    return data[0];
   },
 
   logout: async () => {

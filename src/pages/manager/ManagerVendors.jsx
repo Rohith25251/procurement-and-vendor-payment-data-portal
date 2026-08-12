@@ -150,6 +150,7 @@ export const ManagerVendors = () => {
   };
 
   const filteredVendors = vendors.filter(v => {
+    if (!v || !v.name || !v.name.trim() || v.name.trim() === 'NULL') return false;
     const matchesSearch = v.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           v.code?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           v.email.toLowerCase().includes(searchQuery.toLowerCase());
@@ -158,7 +159,7 @@ export const ManagerVendors = () => {
     return matchesSearch && matchesStatus && matchesCategory;
   });
 
-  const categories = Array.from(new Set(vendors.map(v => v.category)));
+  const categories = Array.from(new Set(vendors.filter(v => v && v.category).map(v => v.category)));
 
   return (
     <div className="space-y-6">
@@ -167,18 +168,10 @@ export const ManagerVendors = () => {
         <div>
           <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
             <Users className="w-7 h-7 text-primary-600" />
-            Vendor Directory & Onboarding
+            Vendor Directory & Catalogs
           </h1>
-          <p className="text-xs text-slate-500 mt-1">Manage vendor requests, profiles, and performance ratings</p>
+          <p className="text-xs text-slate-500 mt-1">Browse approved vendors, inspect product catalogs, and initiate procurement</p>
         </div>
-
-        <button
-          onClick={() => { resetForm(); setIsAddModalOpen(true); }}
-          className="px-4 py-2.5 bg-primary-600 hover:bg-primary-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-primary-600/20 transition-smooth flex items-center gap-2"
-        >
-          <UserPlus className="w-4 h-4" />
-          <span>Add Vendor Manually</span>
-        </button>
       </div>
 
       {/* Search & Filter */}
@@ -213,7 +206,11 @@ export const ManagerVendors = () => {
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700">
                 {filteredVendors.map((v) => (
-                  <tr key={v.id} className="hover:bg-slate-50/80 transition-colors">
+                  <tr 
+                    key={v.id} 
+                    onClick={() => navigate(`/manager/vendors/${v.id}`)}
+                    className="hover:bg-slate-50/80 transition-colors cursor-pointer"
+                  >
                     <td className="py-4 px-6">
                       <div className="font-bold text-slate-900">{v.name}</div>
                       <span className="text-[10px] text-slate-400 font-mono">{v.code}</span>
@@ -232,54 +229,16 @@ export const ManagerVendors = () => {
                     <td className="py-4 px-6">
                       <StatusBadge status={v.status} />
                     </td>
-                    <td className="py-4 px-6 text-right">
+                    <td className="py-4 px-6 text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1.5">
-                        {v.status === 'Pending' ? (
-                          <>
-                            <button
-                              onClick={() => handleApprove(v.id)}
-                              className="px-2.5 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-bold rounded-lg text-xs flex items-center gap-1 transition-colors"
-                              title="Approve Registration"
-                            >
-                              <CheckCircle className="w-3.5 h-3.5" />
-                              <span>Approve</span>
-                            </button>
-                            <button
-                              onClick={() => setRejectDialog({ open: true, vendorId: v.id })}
-                              className="px-2.5 py-1 bg-rose-100 hover:bg-rose-200 text-rose-800 font-bold rounded-lg text-xs flex items-center gap-1 transition-colors"
-                              title="Reject Registration"
-                            >
-                              <XCircle className="w-3.5 h-3.5" />
-                              <span>Reject</span>
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button
-                              onClick={() => navigate(`/manager/vendors/${v.id}`)}
-                              className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors"
-                              title="View Detail Page"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => openEditModal(v)}
-                              className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors"
-                              title="Edit Vendor"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
-                            {v.status === 'Approved' && (
-                              <button
-                                onClick={() => handleDeactivate(v.id)}
-                                className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg transition-colors"
-                                title="Deactivate Vendor"
-                              >
-                                <Power className="w-4 h-4" />
-                              </button>
-                            )}
-                          </>
-                        )}
+                        <button
+                          onClick={() => navigate(`/manager/vendors/${v.id}`)}
+                          className="px-3.5 py-1.5 bg-primary-600 hover:bg-primary-500 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors shadow-xs"
+                          title="View Vendor Catalog & Start Procurement"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>View Catalog & Order</span>
+                        </button>
                       </div>
                     </td>
                   </tr>

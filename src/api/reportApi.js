@@ -19,6 +19,8 @@ export const reportApi = {
     // External invoices (OCR-uploaded without a PO) — include in trend
     const externalInvoices = invoices.filter(i => i.po_number === 'EXTERNAL' || !i.po_id);
 
+    const hasData = purchaseOrders.length > 0 || payments.length > 0 || invoices.length > 0;
+
     // Generate a continuous last 6 months timeline dynamically to make the line chart draw beautifully
     const monthlyMap = {};
     const today = new Date();
@@ -28,7 +30,7 @@ export const reportApi = {
       monthlyMap[monthStr] = { 
         month: monthStr, 
         spend: 0, 
-        target: 50000 + (Math.floor(Math.random() * 10) * 1000 - 5000), // dynamic realistic target lines
+        target: hasData ? 50000 : 0, 
         posCount: 0 
       };
     }

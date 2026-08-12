@@ -171,18 +171,29 @@ export const LoginPage = () => {
               </button>
             </form>
 
-            {/* Vendor Sign-Up Link */}
+            {/* Sign-Up Links */}
             <div className="mt-5 pt-5 border-t border-slate-100 text-center">
-              <p className="text-xs text-slate-500 mb-2">New vendor? Apply for portal access</p>
-              <button
-                id="goto-vendor-signup-btn"
-                onClick={() => navigate('/vendor/signup')}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100
-                           border border-emerald-200 text-emerald-700 text-xs font-bold transition-all duration-200"
-              >
-                <UserPlus className="w-3.5 h-3.5" />
-                Register as a Vendor
-              </button>
+              <p className="text-xs text-slate-500 mb-2">New here? Apply for workspace access</p>
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <button
+                  id="goto-org-signup-btn"
+                  onClick={() => navigate('/organization/signup')}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-primary-50 hover:bg-primary-100
+                             border border-primary-200 text-primary-700 text-xs font-bold transition-all duration-200"
+                >
+                  <Building2 className="w-3.5 h-3.5" />
+                  Register Organization
+                </button>
+                <button
+                  id="goto-vendor-signup-btn"
+                  onClick={() => navigate('/vendor/signup')}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100
+                             border border-emerald-200 text-emerald-700 text-xs font-bold transition-all duration-200"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  Register Vendor
+                </button>
+              </div>
             </div>
 
           </div>

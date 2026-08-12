@@ -54,8 +54,12 @@ export const Sidebar = ({ mobileOpen, onMobileClose }) => {
               <Building2 className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs uppercase font-extrabold tracking-wider text-slate-400">Portal View</p>
-              <h2 className="text-sm font-bold text-white capitalize">{role} Workspace</h2>
+              <p className="text-[10px] uppercase font-extrabold tracking-wider text-slate-400">
+                {role === 'manager' ? 'Organization' : 'Portal View'}
+              </p>
+              <h2 className="text-xs font-bold text-white truncate max-w-[140px]" title={user?.companyName || user?.name}>
+                {role === 'manager' ? (user?.companyName || user?.name || 'Organization Workspace') : 'Vendor Workspace'}
+              </h2>
             </div>
           </div>
           <button

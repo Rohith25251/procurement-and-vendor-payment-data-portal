@@ -10,6 +10,7 @@ import { VendorLayout } from '../components/layout/VendorLayout';
 // Auth Pages
 import { LoginPage } from '../pages/auth/LoginPage';
 import { VendorSignupPage } from '../pages/auth/VendorSignupPage';
+import { OrganizationSignupPage } from '../pages/auth/OrganizationSignupPage';
 import { LandingPage } from '../pages/LandingPage';
 
 // Manager Pages
@@ -52,6 +53,8 @@ export const AppRoutes = () => {
       <Route path="/home" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/vendor/signup" element={<VendorSignupPage />} />
+      <Route path="/organization/signup" element={<OrganizationSignupPage />} />
+      <Route path="/signup/organization" element={<OrganizationSignupPage />} />
 
       {/* Manager Protected Routes */}
       <Route
