@@ -62,78 +62,91 @@ Return a JSON object matching this schema:
 }
 Return ONLY the raw JSON object. Do not wrap it in markdown blocks.`;
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
 
-  if (geminiKey) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${geminiKey}`;
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              { text: promptText },
-              {
-                inlineData: {
-                  mimeType: 'image/png',
-                  data: base64Data
+  try {
+    if (geminiKey) {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                { text: promptText },
+                {
+                  inlineData: {
+                    mimeType: 'image/png',
+                    data: base64Data
+                  }
                 }
-              }
-            ]
+              ]
+            }
+          ],
+          generationConfig: {
+            responseMimeType: 'application/json'
           }
-        ],
-        generationConfig: {
-          responseMimeType: 'application/json'
-        }
-      })
-    });
-    
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`Gemini API error: ${response.status} - ${errText}`);
-    }
-    
-    const result = await response.json();
-    const jsonStr = result.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!jsonStr) throw new Error('Gemini API returned an empty response.');
-    return JSON.parse(jsonStr.trim());
-  } else {
-    const url = 'https://api.openai.com/v1/chat/completions';
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${openaiKey}`
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        response_format: { type: 'json_object' },
-        messages: [
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: promptText },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: `data:image/png;base64,${base64Data}`
+        })
+      });
+      
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Gemini API error: ${response.status} - ${errText}`);
+      }
+      
+      const result = await response.json();
+      const jsonStr = result.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!jsonStr) throw new Error('Gemini API returned an empty response.');
+      return JSON.parse(jsonStr.trim());
+    } else {
+      const url = 'https://api.openai.com/v1/chat/completions';
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${openaiKey}`
+        },
+        signal: controller.signal,
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          response_format: { type: 'json_object' },
+          messages: [
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: promptText },
+                {
+                  type: 'image_url',
+                  image_url: {
+                    url: `data:image/png;base64,${base64Data}`
+                  }
                 }
-              }
-            ]
-          }
-        ]
-      })
-    });
+              ]
+            }
+          ]
+        })
+      });
 
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`OpenAI API error: ${response.status} - ${errText}`);
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`OpenAI API error: ${response.status} - ${errText}`);
+      }
+
+      const result = await response.json();
+      const jsonStr = result.choices?.[0]?.message?.content;
+      if (!jsonStr) throw new Error('OpenAI API returned an empty response.');
+      return JSON.parse(jsonStr.trim());
     }
-
-    const result = await response.json();
-    const jsonStr = result.choices?.[0]?.message?.content;
-    if (!jsonStr) throw new Error('OpenAI API returned an empty response.');
-    return JSON.parse(jsonStr.trim());
+  } catch (err) {
+    clearTimeout(timeoutId);
+    throw err;
   }
 }
 
@@ -816,32 +829,41 @@ export const InvoiceOCRModal = ({ isOpen, onClose, vendors = [], onRegister }) =
       let vendorHint = '';
       let categoryVal = 'Software / SaaS (Software as a Service)';
 
+      let ocrSuccess = false;
       if (useLLM) {
         setOcrStatus('Processing invoice with AI OCR…');
         setOcrProgress(40);
         const base64Data = imageDataUrl.split(',')[1];
-        const res = await callLLMOCR(base64Data);
-        setOcrProgress(80);
-        
-        invNum = res.invoiceNumber || '';
-        invDate = res.invoiceDate || '';
-        totalAmt = Number(res.totalAmount) || 0;
-        poRef = res.poReference || '';
-        gstin = res.gstin || '';
-        vendorHint = res.vendorName || '';
-        categoryVal = res.category || 'Software / SaaS (Software as a Service)';
-        lineItems = (res.items || []).map(i => ({
-          description: i.description || '',
-          quantity: Number(i.quantity) || 1,
-          unitPrice: Number(i.unitPrice) || 0,
-          taxRate: Number(i.taxRate) || 0,
-          taxAmount: Number(i.taxAmount) || 0,
-          total: Number(i.total) || 0
-        }));
-        
-        rawExtracted = `AI Extraction:\nVendor: ${vendorHint}\nCategory: ${categoryVal}\nInvoice #: ${invNum}\nDate: ${invDate}\nTotal: ₹${totalAmt}\n\nLine Items:\n` + 
-          lineItems.map(i => `${i.description} | Qty: ${i.quantity} | Price: ₹${i.unitPrice} | Tax: ${i.taxRate}% (₹${i.taxAmount}) | Total: ₹${i.total}`).join('\n');
-      } else {
+        try {
+          const res = await callLLMOCR(base64Data);
+          setOcrProgress(80);
+          
+          invNum = res.invoiceNumber || '';
+          invDate = res.invoiceDate || '';
+          totalAmt = Number(res.totalAmount) || 0;
+          poRef = res.poReference || '';
+          gstin = res.gstin || '';
+          vendorHint = res.vendorName || '';
+          categoryVal = res.category || 'Software / SaaS (Software as a Service)';
+          lineItems = (res.items || []).map(i => ({
+            description: i.description || '',
+            quantity: Number(i.quantity) || 1,
+            unitPrice: Number(i.unitPrice) || 0,
+            taxRate: Number(i.taxRate) || 0,
+            taxAmount: Number(i.taxAmount) || 0,
+            total: Number(i.total) || 0
+          }));
+          
+          rawExtracted = `AI Extraction:\nVendor: ${vendorHint}\nCategory: ${categoryVal}\nInvoice #: ${invNum}\nDate: ${invDate}\nTotal: ₹${totalAmt}\n\nLine Items:\n` + 
+            lineItems.map(i => `${i.description} | Qty: ${i.quantity} | Price: ₹${i.unitPrice} | Tax: ${i.taxRate}% (₹${i.taxAmount}) | Total: ₹${i.total}`).join('\n');
+          
+          ocrSuccess = true;
+        } catch (llmErr) {
+          console.warn('AI OCR failed, falling back to local processing:', llmErr);
+        }
+      }
+
+      if (!ocrSuccess) {
         setOcrStatus('Reading PDF text content…');
         setOcrProgress(15);
         // Get all text items with coordinates (all pages up to 3)
