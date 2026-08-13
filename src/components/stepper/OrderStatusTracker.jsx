@@ -6,20 +6,20 @@ import {
 
 const STEPS = [
   { id: 'Invoice Requested', label: 'Invoice Requested', icon: FilePlus },
-  { id: 'Invoice Generated', label: 'Invoice Generated', icon: FileText },
-  { id: 'Paid', label: 'Paid', icon: IndianRupee },
+  { id: 'Invoice Accepted', label: 'Invoice Accepted', icon: CheckCheck },
+  { id: 'Shipped', label: 'Shipped', icon: Send },
   { id: 'Out for Delivery', label: 'Out for Delivery', icon: Truck },
-  { id: 'Delivered', label: 'Delivered', icon: CheckCircle }
+  { id: 'Delivered', label: 'Delivered', icon: CheckCircle },
+  { id: 'Paid', label: 'Paid', icon: IndianRupee },
 ];
 
 export const OrderStatusTracker = ({ currentStatus, history = [], queryComment, rejectionReason }) => {
+  const isDeclined = currentStatus === 'Invoice Declined';
   const isRejected = currentStatus === 'Rejected';
-  const isQuery = currentStatus === 'Query Raised';
+  const isTerminal = isDeclined || isRejected;
 
-  // Find index of current status in steps
   const getCurrentIndex = () => {
-    if (isRejected) return 1; // Default to approval stage or historical
-    if (isQuery) return 3; // Query raised at acceptance stage
+    if (isTerminal) return 0;
     const idx = STEPS.findIndex(s => s.id === currentStatus);
     return idx !== -1 ? idx : 0;
   };
@@ -39,17 +39,17 @@ export const OrderStatusTracker = ({ currentStatus, history = [], queryComment, 
           <p className="text-xs text-slate-400 mt-0.5">Real-time status progression from request to settlement</p>
         </div>
         
+        {isDeclined && (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-rose-100 text-rose-800 text-xs font-bold rounded-full border border-rose-200">
+            <XCircle className="w-4 h-4 text-rose-600" />
+            Invoice Declined
+          </span>
+        )}
+
         {isRejected && (
           <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-rose-100 text-rose-800 text-xs font-bold rounded-full border border-rose-200">
             <XCircle className="w-4 h-4 text-rose-600" />
             Order Rejected
-          </span>
-        )}
-
-        {isQuery && (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-100 text-amber-800 text-xs font-bold rounded-full border border-amber-200">
-            <HelpCircle className="w-4 h-4 text-amber-600" />
-            Vendor Query Pending
           </span>
         )}
       </div>
@@ -59,8 +59,8 @@ export const OrderStatusTracker = ({ currentStatus, history = [], queryComment, 
         <div className="min-w-[720px] flex items-center justify-between">
           {STEPS.map((step, idx) => {
             const Icon = step.icon;
-            const isCompleted = !isRejected && (idx < currentIndex || currentStatus === 'Paid');
-            const isCurrent = !isRejected && (idx === currentIndex && currentStatus !== 'Paid');
+            const isCompleted = !isTerminal && idx < currentIndex;
+            const isCurrent = !isTerminal && idx === currentIndex;
             const timestamp = getStepTimestamp(step.id);
 
             let circleStyle = "bg-slate-100 text-slate-400 border-slate-200";
@@ -72,14 +72,9 @@ export const OrderStatusTracker = ({ currentStatus, history = [], queryComment, 
               lineStyle = "bg-emerald-600";
               labelStyle = "text-slate-800 font-bold";
             } else if (isCurrent) {
-              if (isQuery && step.id === 'Accepted') {
-                circleStyle = "bg-amber-500 text-white border-amber-500 ring-4 ring-amber-100 animate-pulse";
-                labelStyle = "text-amber-700 font-bold";
-              } else {
-                circleStyle = "bg-primary-600 text-white border-primary-600 ring-4 ring-primary-100";
-                labelStyle = "text-primary-700 font-extrabold";
-              }
-            } else if (isRejected && idx === currentIndex) {
+              circleStyle = "bg-primary-600 text-white border-primary-600 ring-4 ring-primary-100";
+              labelStyle = "text-primary-700 font-extrabold";
+            } else if (isTerminal && idx === 0) {
               circleStyle = "bg-rose-600 text-white border-rose-600 ring-4 ring-rose-100";
               labelStyle = "text-rose-700 font-bold";
             }
@@ -109,13 +104,13 @@ export const OrderStatusTracker = ({ currentStatus, history = [], queryComment, 
         </div>
       </div>
 
-      {/* Query Banner */}
-      {isQuery && queryComment && (
-        <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3 text-amber-900 text-xs">
-          <HelpCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+      {/* Declined Banner */}
+      {isDeclined && rejectionReason && (
+        <div className="mt-4 p-4 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-3 text-rose-900 text-xs">
+          <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
           <div>
-            <span className="font-bold block">Vendor Query Note:</span>
-            <p className="mt-0.5">{queryComment}</p>
+            <span className="font-bold block">Invoice Declined Reason:</span>
+            <p className="mt-0.5">{rejectionReason}</p>
           </div>
         </div>
       )}
