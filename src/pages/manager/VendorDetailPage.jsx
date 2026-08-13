@@ -175,26 +175,47 @@ export const VendorDetailPage = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {products.map((prod) => (
-              <div key={prod.id} className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col justify-between space-y-3">
-                <div>
-                  <span className="text-[10px] font-mono uppercase font-bold text-slate-400">{prod.sku}</span>
-                  <h4 className="text-sm font-bold text-slate-900">{prod.name}</h4>
-                  <p className="text-xs text-slate-500 mt-1 line-clamp-2">{prod.description}</p>
+              <div key={prod.id} className="bg-white border border-slate-200 rounded-2xl flex flex-col justify-between overflow-hidden shadow-sm hover:shadow-md transition-all duration-200">
+                {/* Image Header */}
+                <div className="relative h-40 bg-slate-50 border-b border-slate-100 overflow-hidden">
+                  {prod.imageUrl ? (
+                    <img src={prod.imageUrl} alt={prod.name} className="w-full h-full object-cover transition-transform duration-300 hover:scale-105" />
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center text-slate-300">
+                      <Package className="w-10 h-10 mb-1" />
+                      <p className="text-[10px] text-slate-400">No Image</p>
+                    </div>
+                  )}
+                  {/* Category Pill */}
+                  <div className="absolute top-2 left-2">
+                    <span className="px-2 py-0.5 bg-white/90 backdrop-blur-sm rounded-full text-[9px] font-bold text-slate-600 border border-slate-200 shadow-xs">
+                      {prod.category}
+                    </span>
+                  </div>
                 </div>
 
-                <div className="pt-2 border-t flex items-center justify-between">
+                {/* Content */}
+                <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
                   <div>
-                    <span className="text-[10px] text-slate-400 block font-semibold">Unit Price</span>
-                    <span className="text-base font-extrabold text-primary-600">₹{prod.unitPrice.toLocaleString('en-IN')} INR</span>
+                    <span className="text-[10px] font-mono uppercase font-bold text-slate-400">{prod.sku}</span>
+                    <h4 className="text-sm font-bold text-slate-900 mt-0.5">{prod.name}</h4>
+                    <p className="text-xs text-slate-500 mt-1 line-clamp-2">{prod.description}</p>
                   </div>
 
-                  <button
-                    onClick={() => handleOpenOrderModal(prod)}
-                    className="px-3 py-1.5 bg-primary-600 hover:bg-primary-500 text-white font-bold text-xs rounded-xl shadow-xs transition-smooth flex items-center gap-1.5"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Request Invoice</span>
-                  </button>
+                  <div className="pt-2 border-t flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] text-slate-400 block font-semibold">Unit Price</span>
+                      <span className="text-base font-extrabold text-primary-600">₹{prod.unitPrice.toLocaleString('en-IN')} INR</span>
+                    </div>
+
+                    <button
+                      onClick={() => handleOpenOrderModal(prod)}
+                      className="px-3 py-1.5 bg-primary-600 hover:bg-primary-500 text-white font-bold text-xs rounded-xl shadow-xs transition-smooth flex items-center gap-1.5"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Request Invoice</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
