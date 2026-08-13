@@ -14,16 +14,7 @@ export const NotificationProvider = ({ children }) => {
     setLoading(true);
     try {
       const data = await notificationApi.getNotifications();
-      // Filter by role or vendorId
-      const filtered = data.filter(n => {
-        if (n.recipientRole === 'all') return true;
-        if (user.role === 'manager' && n.recipientRole === 'manager') return true;
-        if (user.role === 'vendor' && n.recipientRole === 'vendor') {
-          return !n.vendorId || n.vendorId === user.vendorId;
-        }
-        return false;
-      });
-      setNotifications(filtered);
+      setNotifications(data);
     } catch (err) {
       console.error("Failed loading notifications", err);
     } finally {
@@ -33,10 +24,21 @@ export const NotificationProvider = ({ children }) => {
 
   useEffect(() => {
     fetchNotifications();
+
+    // Auto refresh notifications every 10 seconds for real-time governance alerts
+    const interval = setInterval(() => {
+      fetchNotifications();
+    }, 10000);
+
+    return () => clearInterval(interval);
   }, [fetchNotifications]);
 
   const markAsRead = async (id) => {
-    const updated = await notificationApi.markAsRead(id);
+    if (id.startsWith('dyn_warn_')) {
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+      return;
+    }
+    await notificationApi.markAsRead(id);
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
   };
 

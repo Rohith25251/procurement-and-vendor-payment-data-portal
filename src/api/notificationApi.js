@@ -41,15 +41,18 @@ export const notificationApi = {
 
     const procureSession = JSON.parse(localStorage.getItem('procure_session') || '{}');
     const userRole = procureSession?.user?.role || 'manager';
-    const userVendorId = procureSession?.user?.vendorId;
+    const userVendorId = procureSession?.user?.vendorId || procureSession?.user?.id;
+    const userEmail = procureSession?.user?.email;
 
     const filtered = data.filter(n => {
       // 1. Role match check
       let roleMatch = false;
       if (userRole === 'manager') {
-        roleMatch = n.recipient_role === 'manager' || n.recipient_role === 'organization' || n.recipient_role === 'all';
+        roleMatch = n.recipient_role === 'manager' || n.recipient_role === 'organization' || n.recipient_role === 'all' || n.recipient_role === 'governance';
       } else if (userRole === 'vendor') {
-        roleMatch = (n.recipient_role === 'vendor' && (!n.vendor_id || n.vendor_id === userVendorId)) || n.recipient_role === 'all';
+        roleMatch = (n.recipient_role === 'vendor' || n.recipient_role === 'governance' || n.recipient_role === 'user') && 
+                    (!n.vendor_id || n.vendor_id === userVendorId || n.vendor_id === userEmail || n.vendor_id === procureSession?.user?.id);
+        if (!roleMatch && n.recipient_role === 'all') roleMatch = true;
       } else {
         roleMatch = true;
       }
@@ -63,7 +66,6 @@ export const notificationApi = {
           if (n.vendor_id && vendorMap.has(n.vendor_id)) {
             vendorStatus = vendorMap.get(n.vendor_id).status;
           } else if (n.message) {
-            // Match via vendor name in the message
             const match = n.message.match(/(.*?) has submitted a registration request/);
             if (match) {
               const name = match[1].toLowerCase().trim();
@@ -88,6 +90,40 @@ export const notificationApi = {
 
       return true;
     });
+
+    // Dynamic warning notice injection if user has warning in DB
+    if (userVendorId || userEmail) {
+      try {
+        let userDb = null;
+        if (userRole === 'vendor') {
+          const { data: vData } = await supabase.from('vendors').select('*').or(`id.eq.${userVendorId},email.eq.${userEmail}`).maybeSingle();
+          userDb = vData;
+        } else {
+          const { data: oData } = await supabase.from('organizations').select('*').or(`id.eq.${userVendorId},email.eq.${userEmail}`).maybeSingle();
+          userDb = oData;
+        }
+
+        if (userDb && (userDb.status === 'Warned' || userDb.warning_reason || userDb.warning_comment)) {
+          const warnReason = userDb.warning_reason || userDb.warning_comment || 'Suspicious activity detected on your account.';
+          const exists = filtered.some(n => n.type === 'governance' || (n.title && n.title.includes('Warning')));
+          if (!exists) {
+            filtered.unshift({
+              id: `dyn_warn_${userDb.id}`,
+              recipient_role: userRole,
+              vendor_id: userDb.id,
+              title: '⚠️ Warning Notice from Admin',
+              message: `Suspicious activity detected: "${warnReason}". Continued suspicious activity may lead to account deactivation.`,
+              timestamp: 'Just now',
+              read: false,
+              type: 'governance',
+              link: '/'
+            });
+          }
+        }
+      } catch (err) {
+        // ignore
+      }
+    }
 
     return filtered.map(mapDBToNotification);
   },
