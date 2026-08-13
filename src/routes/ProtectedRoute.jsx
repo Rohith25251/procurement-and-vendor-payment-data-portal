@@ -21,6 +21,10 @@ export const ProtectedRoute = ({ children, allowedRole }) => {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
+  if (user.isDeactivated && location.pathname !== '/deactivated') {
+    return <Navigate to="/deactivated" replace />;
+  }
+
   if (allowedRole && user.role !== allowedRole) {
     // Redirect manager to manager dashboard, vendor to vendor dashboard
     const defaultRedirect = user.role === 'manager' ? '/manager/dashboard' : '/vendor/dashboard';

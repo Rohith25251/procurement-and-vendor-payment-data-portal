@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { vendorApi } from '../../api/vendorApi';
+import { authApi } from '../../api/authApi';
+import { activityLogger } from '../../api/activityLogger';
 import { SearchFilterBar } from '../../components/common/SearchFilterBar';
 import { TableSkeleton } from '../../components/common/LoadingSkeleton';
 import { StatusBadge } from '../../components/common/StatusBadge';
@@ -7,7 +9,7 @@ import { Modal } from '../../components/common/Modal';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { useToast } from '../../context/ToastContext';
 import { 
-  Users, UserPlus, Star, CheckCircle, XCircle, Eye, Edit, Power, Building2, Phone, Mail, Copy, KeyRound
+  Users, UserPlus, Star, CheckCircle, XCircle, Eye, Edit, Power, Building2, Phone, Mail, Copy, KeyRound, Activity, AlertTriangle, ShieldAlert
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -24,6 +26,11 @@ export const ManagerVendors = () => {
   const [selectedVendor, setSelectedVendor] = useState(null);
   const [rejectDialog, setRejectDialog] = useState({ open: false, vendorId: null });
   const [credentialsModal, setCredentialsModal] = useState({ open: false, email: '', password: '' });
+
+  // Governance Modals State
+  const [activityTrailModal, setActivityTrailModal] = useState({ open: false, user: null, logs: [] });
+  const [warnDialog, setWarnDialog] = useState({ open: false, vendor: null });
+  const [deactivateDialog, setDeactivateDialog] = useState({ open: false, vendor: null });
 
   // Form State
   const [formData, setFormData] = useState({
@@ -90,6 +97,59 @@ export const ManagerVendors = () => {
       fetchVendors();
     } catch (err) {
       showToast('Action failed', 'error');
+    }
+  };
+
+  const handleOpenActivityTrail = async (v) => {
+    try {
+      const logs = await activityLogger.getUserActivities(v.id);
+      setActivityTrailModal({ open: true, user: v, logs });
+    } catch (e) {
+      showToast('Failed to load user activity trail', 'error');
+    }
+  };
+
+  const handleWarnUserSubmit = async (reason) => {
+    if (!warnDialog.vendor) return;
+    try {
+      await authApi.warnUser(warnDialog.vendor.id, 'vendor', reason);
+      showToast(`Warning issued to ${warnDialog.vendor.name}`, 'warning');
+      setWarnDialog({ open: false, vendor: null });
+      fetchVendors();
+    } catch (err) {
+      showToast('Failed to issue warning', 'error');
+    }
+  };
+
+  const handleDeactivateUserSubmit = async (reason) => {
+    if (!deactivateDialog.vendor) return;
+    try {
+      await authApi.deactivateUser(deactivateDialog.vendor.id, 'vendor', reason);
+      showToast(`Account deactivated for ${deactivateDialog.vendor.name}`, 'error');
+      setDeactivateDialog({ open: false, vendor: null });
+      fetchVendors();
+    } catch (err) {
+      showToast('Failed to deactivate user', 'error');
+    }
+  };
+
+  const handleAcceptReactivation = async (vendor) => {
+    try {
+      await authApi.decideReactivationRequest(vendor.id, 'vendor', 'Accepted');
+      showToast(`Reactivation request ACCEPTED for ${vendor.name}! User account restored.`, 'success');
+      fetchVendors();
+    } catch (err) {
+      showToast('Failed to accept reactivation request', 'error');
+    }
+  };
+
+  const handleDeclineReactivation = async (vendor) => {
+    try {
+      await authApi.decideReactivationRequest(vendor.id, 'vendor', 'Declined', 'Reactivation request rejected by admin governance.');
+      showToast(`Reactivation request DECLINED for ${vendor.name}.`, 'warning');
+      fetchVendors();
+    } catch (err) {
+      showToast('Failed to decline reactivation request', 'error');
     }
   };
 
@@ -230,10 +290,67 @@ export const ManagerVendors = () => {
                       <StatusBadge status={v.status} />
                     </td>
                     <td className="py-4 px-6 text-right" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center justify-end gap-1.5">
+                      <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                        {/* Reactivation Request Review */}
+                        {v.reactivation_status === 'Pending' && (
+                          <div className="flex items-center gap-1 bg-amber-50 p-1 rounded-xl border border-amber-200">
+                            <span className="text-[10px] font-bold text-amber-800 px-1">Reactivation Appeal:</span>
+                            <button
+                              onClick={() => handleAcceptReactivation(v)}
+                              className="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-[10px]"
+                              title="Accept Reactivation Request"
+                            >
+                              Accept
+                            </button>
+                            <button
+                              onClick={() => handleDeclineReactivation(v)}
+                              className="px-2 py-0.5 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-lg text-[10px]"
+                              title="Decline Reactivation Request"
+                            >
+                              Decline
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Activity Trail Button */}
+                        <button
+                          onClick={() => handleOpenActivityTrail(v)}
+                          className="px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold rounded-lg text-xs flex items-center gap-1 border border-purple-200 transition-colors"
+                          title="View user recent activity trail"
+                        >
+                          <Activity className="w-3.5 h-3.5" />
+                          <span>Activity Trail</span>
+                        </button>
+
+                        {/* Warn User */}
+                        <button
+                          onClick={() => setWarnDialog({ open: true, vendor: v })}
+                          className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold rounded-lg text-xs flex items-center gap-1 border border-amber-200 transition-colors"
+                          title="Issue Warning Notice"
+                        >
+                          <AlertTriangle className="w-3.5 h-3.5" />
+                          <span>Warn</span>
+                        </button>
+
+                        {/* Deactivate User */}
+                        {v.status !== 'Deactivated' ? (
+                          <button
+                            onClick={() => setDeactivateDialog({ open: true, vendor: v })}
+                            className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold rounded-lg text-xs flex items-center gap-1 border border-rose-200 transition-colors"
+                            title="Deactivate Account"
+                          >
+                            <Power className="w-3.5 h-3.5" />
+                            <span>Deactivate</span>
+                          </button>
+                        ) : (
+                          <span className="px-2 py-1 bg-slate-100 text-slate-500 font-bold rounded-lg text-xs border">
+                            Deactivated
+                          </span>
+                        )}
+
                         <button
                           onClick={() => navigate(`/manager/vendors/${v.id}`)}
-                          className="px-3.5 py-1.5 bg-primary-600 hover:bg-primary-500 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors shadow-xs"
+                          className="px-3 py-1 bg-primary-600 hover:bg-primary-500 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors shadow-xs"
                           title="View Vendor Catalog & Start Procurement"
                         >
                           <Eye className="w-3.5 h-3.5" />
@@ -526,6 +643,81 @@ export const ManagerVendors = () => {
           </div>
         </div>
       )}
+      {/* Activity Trail Modal */}
+      <Modal
+        isOpen={activityTrailModal.open}
+        onClose={() => setActivityTrailModal({ open: false, user: null, logs: [] })}
+        title={`Recent Activity Trail: ${activityTrailModal.user?.name || 'User'}`}
+        maxWidth="max-w-xl"
+      >
+        {activityTrailModal.user && (
+          <div className="space-y-4 text-xs">
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
+              <div>
+                <span className="font-extrabold text-slate-900 text-sm">{activityTrailModal.user.name}</span>
+                <p className="text-slate-500 font-mono text-[10px]">{activityTrailModal.user.email}</p>
+              </div>
+              <StatusBadge status={activityTrailModal.user.status} />
+            </div>
+
+            <h4 className="font-bold text-slate-800 flex items-center gap-1.5">
+              <Activity className="w-4 h-4 text-purple-600" />
+              <span>Activity Trail & Governance Audit Log ({activityTrailModal.logs.length})</span>
+            </h4>
+
+            <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
+              {activityTrailModal.logs.length === 0 ? (
+                <p className="text-center py-6 text-slate-400">No activity recorded for this user yet.</p>
+              ) : (
+                activityTrailModal.logs.map((log, idx) => (
+                  <div key={idx} className="p-3 bg-white border border-slate-200/80 rounded-xl space-y-1 hover:border-purple-200 transition-colors">
+                    <div className="flex justify-between items-center text-[10px]">
+                      <span className="font-bold text-purple-700 uppercase tracking-wider">{log.action}</span>
+                      <span className="text-slate-400 font-mono">{log.timestamp}</span>
+                    </div>
+                    <p className="text-slate-600 font-medium text-xs">{log.details}</p>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="flex justify-end pt-2 border-t">
+              <button
+                onClick={() => setActivityTrailModal({ open: false, user: null, logs: [] })}
+                className="px-4 py-2 font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Warn User Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={warnDialog.open}
+        onClose={() => setWarnDialog({ open: false, vendor: null })}
+        onConfirm={handleWarnUserSubmit}
+        title={`Issue Warning Notice to ${warnDialog.vendor?.name}`}
+        message="State the suspicious activity detected. A warning notice banner will be displayed to the user."
+        requireReason={true}
+        confirmText="Send Warning Notice"
+        reasonPlaceholder="e.g. Suspicious duplicate invoice uploads detected"
+        type="warning"
+      />
+
+      {/* Deactivate User Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={deactivateDialog.open}
+        onClose={() => setDeactivateDialog({ open: false, vendor: null })}
+        onConfirm={handleDeactivateUserSubmit}
+        title={`Deactivate Account: ${deactivateDialog.vendor?.name}`}
+        message="State the reason for deactivating this user account. The user will be locked out and redirected to the reactivation appeal page upon login."
+        requireReason={true}
+        confirmText="Deactivate Account"
+        reasonPlaceholder="e.g. Continued policy violations after warning"
+        type="danger"
+      />
     </div>
   );
 };

@@ -12,6 +12,7 @@ import { LoginPage } from '../pages/auth/LoginPage';
 import { VendorSignupPage } from '../pages/auth/VendorSignupPage';
 import { OrganizationSignupPage } from '../pages/auth/OrganizationSignupPage';
 import { LandingPage } from '../pages/LandingPage';
+import { DeactivatedPage } from '../pages/DeactivatedPage';
 
 // Manager Pages
 import { ManagerDashboard } from '../pages/manager/ManagerDashboard';
@@ -37,17 +38,24 @@ export const AppRoutes = () => {
 
   return (
     <Routes>
-      {/* Root: logged in → dashboard, guest → landing home page */}
+      {/* Root: logged in → dashboard (or /deactivated), guest → landing home page */}
       <Route
         path="/"
         element={
           user ? (
-            <Navigate to={user.role === 'manager' ? '/manager/dashboard' : '/vendor/dashboard'} replace />
+            user.isDeactivated ? (
+              <Navigate to="/deactivated" replace />
+            ) : (
+              <Navigate to={user.role === 'manager' ? '/manager/dashboard' : '/vendor/dashboard'} replace />
+            )
           ) : (
             <Navigate to="/home" replace />
           )
         }
       />
+
+      {/* Deactivated Account Page */}
+      <Route path="/deactivated" element={<DeactivatedPage />} />
 
       {/* Landing & Auth */}
       <Route path="/home" element={<LandingPage />} />

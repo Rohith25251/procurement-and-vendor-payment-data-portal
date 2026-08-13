@@ -521,7 +521,7 @@ export const ManagerInvoices = () => {
                 className="px-5 py-2 font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-sm flex items-center gap-1.5"
               >
                 <CreditCard className="w-3.5 h-3.5" />
-                <span>Submit Payment</span>
+                <span>Disburse Payment</span>
               </button>
             </div>
           </form>

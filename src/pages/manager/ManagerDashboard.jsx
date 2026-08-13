@@ -7,6 +7,7 @@ import { vendorApi } from '../../api/vendorApi';
 import { invoiceApi } from '../../api/invoiceApi';
 import { paymentApi } from '../../api/paymentApi';
 import { reportApi } from '../../api/reportApi';
+import { useAuth } from '../../context/AuthContext';
 import { 
   IndianRupee, Clock, Users, AlertCircle, TrendingUp, ArrowRight, Activity, ShoppingCart 
 } from 'lucide-react';
@@ -16,6 +17,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 
 export const ManagerDashboard = () => {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     pendingApprovals: 0,
@@ -102,6 +104,20 @@ export const ManagerDashboard = () => {
           <span>New Purchase Order</span>
         </button>
       </div>
+
+      {/* Warning Notice Banner if Warned by Admin */}
+      {user?.warningReason && (
+        <div className="p-4 bg-amber-50 border border-amber-300 rounded-2xl flex items-start gap-3 text-amber-900 shadow-sm">
+          <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <div>
+            <h4 className="text-sm font-extrabold text-amber-900">⚠️ Warning Notice from Super Admin Governance</h4>
+            <p className="text-xs text-amber-800 mt-0.5">
+              Suspicious activity detected on your account: <strong className="text-amber-950 font-bold">"{user.warningReason}"</strong>.
+              Please review your recent activities. Continued policy violations may result in account deactivation.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* 4 Primary KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">

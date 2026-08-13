@@ -7,8 +7,11 @@ import { StatusBadge } from '../../components/common/StatusBadge';
 import { TableSkeleton } from '../../components/common/LoadingSkeleton';
 import { Modal } from '../../components/common/Modal';
 import { useToast } from '../../context/ToastContext';
+import { authApi } from '../../api/authApi';
+import { activityLogger } from '../../api/activityLogger';
+import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { 
-  Building2, Mail, Phone, MapPin, FileCheck, Star, ArrowLeft, ShieldCheck, Download, Award, Package, ShoppingCart, Plus 
+  Building2, Mail, Phone, MapPin, FileCheck, Star, ArrowLeft, ShieldCheck, Download, Award, Package, ShoppingCart, Plus, Activity, AlertTriangle, Power 
 } from 'lucide-react';
 
 export const VendorDetailPage = () => {
@@ -20,14 +23,10 @@ export const VendorDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const { showToast } = useToast();
 
-  // Quick Order Modal State
-  const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
-  const [orderForm, setOrderForm] = useState({
-    selectedProductId: '',
-    quantity: 10,
-    expectedDeliveryDate: '',
-    notes: ''
-  });
+  // Governance Modals
+  const [activityTrailModal, setActivityTrailModal] = useState({ open: false, logs: [] });
+  const [warnDialog, setWarnDialog] = useState(false);
+  const [deactivateDialog, setDeactivateDialog] = useState(false);
 
   useEffect(() => {
     const loadVendorDetails = async () => {
@@ -53,6 +52,39 @@ export const VendorDetailPage = () => {
 
     loadVendorDetails();
   }, [id]);
+
+  const handleOpenActivityTrail = async () => {
+    try {
+      const logs = await activityLogger.getUserActivities(vendor.id || vendor.vendorId);
+      setActivityTrailModal({ open: true, logs });
+    } catch (e) {
+      showToast('Failed to load activity trail', 'error');
+    }
+  };
+
+  const handleWarnUserSubmit = async (reason) => {
+    try {
+      await authApi.warnUser(vendor.id || vendor.vendorId, 'vendor', reason);
+      showToast(`Warning notice sent to ${vendor.name}`, 'warning');
+      setWarnDialog(false);
+      const updated = await vendorApi.getVendorById(id);
+      setVendor(updated);
+    } catch (err) {
+      showToast('Failed to issue warning', 'error');
+    }
+  };
+
+  const handleDeactivateUserSubmit = async (reason) => {
+    try {
+      await authApi.deactivateUser(vendor.id || vendor.vendorId, 'vendor', reason);
+      showToast(`Account deactivated for ${vendor.name}`, 'error');
+      setDeactivateDialog(false);
+      const updated = await vendorApi.getVendorById(id);
+      setVendor(updated);
+    } catch (err) {
+      showToast('Failed to deactivate vendor', 'error');
+    }
+  };
 
   const handleOpenOrderModal = (product) => {
     setOrderForm({
@@ -138,21 +170,50 @@ export const VendorDetailPage = () => {
           </div>
         </div>
 
-        {/* Action Button & Scorecard */}
-        <div className="flex items-center gap-4">
+        {/* Action Button & Governance Controls */}
+        <div className="flex items-center gap-2 flex-wrap">
           <button
-            onClick={() => handleOpenOrderModal(null)}
-            className="px-4 py-2.5 bg-primary-600 hover:bg-primary-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-primary-600/30 transition-smooth flex items-center gap-2"
+            onClick={handleOpenActivityTrail}
+            className="px-3.5 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold text-xs rounded-xl border border-purple-200 transition-colors flex items-center gap-1.5"
+            title="View User Recent Activity Trail"
           >
-            <ShoppingCart className="w-4 h-4" />
-            <span>Place Order With Vendor</span>
+            <Activity className="w-4 h-4" />
+            <span>Activity Trail</span>
           </button>
 
-          <div className="p-4 bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl flex items-center gap-3 shrink-0 shadow-md">
-            <Award className="w-7 h-7 text-amber-400" />
+          <button
+            onClick={() => setWarnDialog(true)}
+            className="px-3.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold text-xs rounded-xl border border-amber-200 transition-colors flex items-center gap-1.5"
+            title="Send Warning Notice"
+          >
+            <AlertTriangle className="w-4 h-4" />
+            <span>Warn</span>
+          </button>
+
+          {vendor.status !== 'Deactivated' && (
+            <button
+              onClick={() => setDeactivateDialog(true)}
+              className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs rounded-xl border border-rose-200 transition-colors flex items-center gap-1.5"
+              title="Deactivate Vendor Account"
+            >
+              <Power className="w-4 h-4" />
+              <span>Deactivate</span>
+            </button>
+          )}
+
+          <button
+            onClick={() => handleOpenOrderModal(null)}
+            className="px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-primary-600/30 transition-smooth flex items-center gap-2"
+          >
+            <ShoppingCart className="w-4 h-4" />
+            <span>Place Order</span>
+          </button>
+
+          <div className="p-3 bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl flex items-center gap-3 shrink-0 shadow-md">
+            <Award className="w-6 h-6 text-amber-400" />
             <div>
               <p className="text-[10px] uppercase font-bold text-slate-400">Scorecard</p>
-              <p className="text-xl font-extrabold text-amber-400">{vendor.score}%</p>
+              <p className="text-lg font-extrabold text-amber-400">{vendor.score}%</p>
             </div>
           </div>
         </div>
@@ -347,6 +408,79 @@ export const VendorDetailPage = () => {
           </div>
         </form>
       </Modal>
+      {/* Activity Trail Modal */}
+      <Modal
+        isOpen={activityTrailModal.open}
+        onClose={() => setActivityTrailModal({ open: false, logs: [] })}
+        title={`Recent Activity Trail: ${vendor.name}`}
+        maxWidth="max-w-xl"
+      >
+        <div className="space-y-4 text-xs">
+          <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
+            <div>
+              <span className="font-extrabold text-slate-900 text-sm">{vendor.name}</span>
+              <p className="text-slate-500 font-mono text-[10px]">{vendor.email}</p>
+            </div>
+            <StatusBadge status={vendor.status} />
+          </div>
+
+          <h4 className="font-bold text-slate-800 flex items-center gap-1.5">
+            <Activity className="w-4 h-4 text-purple-600" />
+            <span>Activity Log & Audit Trail ({activityTrailModal.logs.length})</span>
+          </h4>
+
+          <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
+            {activityTrailModal.logs.length === 0 ? (
+              <p className="text-center py-6 text-slate-400">No activity logged for this vendor yet.</p>
+            ) : (
+              activityTrailModal.logs.map((log, idx) => (
+                <div key={idx} className="p-3 bg-white border border-slate-200/80 rounded-xl space-y-1 hover:border-purple-200 transition-colors">
+                  <div className="flex justify-between items-center text-[10px]">
+                    <span className="font-bold text-purple-700 uppercase tracking-wider">{log.action}</span>
+                    <span className="text-slate-400 font-mono">{log.timestamp}</span>
+                  </div>
+                  <p className="text-slate-600 font-medium text-xs">{log.details}</p>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="flex justify-end pt-2 border-t">
+            <button
+              onClick={() => setActivityTrailModal({ open: false, logs: [] })}
+              className="px-4 py-2 font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Warn Dialog */}
+      <ConfirmDialog
+        isOpen={warnDialog}
+        onClose={() => setWarnDialog(false)}
+        onConfirm={handleWarnUserSubmit}
+        title={`Issue Warning Notice to ${vendor.name}`}
+        message="Specify the suspicious activity detected. The vendor will see a warning alert banner on their dashboard."
+        requireReason={true}
+        confirmText="Send Warning Notice"
+        reasonPlaceholder="e.g. Suspicious document uploads detected"
+        type="warning"
+      />
+
+      {/* Deactivate Dialog */}
+      <ConfirmDialog
+        isOpen={deactivateDialog}
+        onClose={() => setDeactivateDialog(false)}
+        onConfirm={handleDeactivateUserSubmit}
+        title={`Deactivate Account: ${vendor.name}`}
+        message="State the reason for deactivating this vendor account. The vendor will be locked out and directed to the reactivation appeal page upon login."
+        requireReason={true}
+        confirmText="Deactivate Account"
+        reasonPlaceholder="e.g. Continued policy violations after warning"
+        type="danger"
+      />
     </div>
   );
 };
