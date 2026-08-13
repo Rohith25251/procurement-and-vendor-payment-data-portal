@@ -2,7 +2,8 @@ import { supabase } from '../supabaseClient';
 
 export const authApi = {
   login: async (email, password) => {
-    const normalizedEmail = email.toLowerCase().trim();
+    const rawInput = email.trim();
+    const normalizedEmail = rawInput.toLowerCase();
 
     // 0. Super Admin accounts are blocked from logging into the Organization & Vendor Portal
     if (normalizedEmail === 'admin@procurehub.com') {
@@ -18,11 +19,11 @@ export const authApi = {
       throw new Error('Super Admin accounts must log in through the Super Admin Portal.');
     }
 
-    // 1. Check the users table first (managers only)
+    // 1. Check the users table first (managers only by email or ID)
     const { data: users, error: userError } = await supabase
       .from('users')
       .select('*')
-      .eq('email', normalizedEmail)
+      .or(`email.eq.${normalizedEmail},id.eq.${rawInput}`)
       .eq('role', 'manager');
 
     if (!userError && users && users.length > 0) {
@@ -48,17 +49,22 @@ export const authApi = {
       return session;
     }
 
-    // 1b. Check organizations table for manager accounts
+    // 1b. Check organizations table for manager accounts (by email OR organization ID)
     const { data: orgs } = await supabase
       .from('organizations')
       .select('*')
-      .eq('email', normalizedEmail)
-      .eq('status', 'Approved');
+      .or(`email.eq.${normalizedEmail},id.eq.${rawInput}`);
 
     if (orgs && orgs.length > 0) {
       const org = orgs[0];
       if (org.password !== password) {
         throw new Error('Invalid email or password. Please check your credentials.');
+      }
+      if (org.status === 'Pending') {
+        throw new Error('Your organization registration is pending approval. Please wait for Super Admin approval.');
+      }
+      if (org.status === 'Rejected') {
+        throw new Error('Your organization registration was rejected. Please contact support.');
       }
       const token = `mock-jwt-token-${org.id}-${Date.now()}`;
       const session = {
@@ -78,17 +84,22 @@ export const authApi = {
       return session;
     }
 
-    // 2. Check the vendors table for approved vendors
+    // 2. Check the vendors table for vendors (by email OR vendor ID)
     const { data: vendors, error: vendorError } = await supabase
       .from('vendors')
       .select('*')
-      .eq('email', normalizedEmail)
-      .eq('status', 'Approved');
+      .or(`email.eq.${normalizedEmail},id.eq.${rawInput}`);
 
     if (!vendorError && vendors && vendors.length > 0) {
       const vendor = vendors[0];
       if (vendor.password !== password) {
         throw new Error('Invalid email or password. Please check your credentials.');
+      }
+      if (vendor.status === 'Pending') {
+        throw new Error('Your vendor registration is pending approval. Please wait for the manager to approve your account.');
+      }
+      if (vendor.status === 'Rejected') {
+        throw new Error('Your vendor registration was rejected. Please contact support.');
       }
       const token = `mock-jwt-token-${vendor.id}-${Date.now()}`;
       const session = {
@@ -108,23 +119,7 @@ export const authApi = {
       return session;
     }
 
-    // 3. If vendor exists but is not yet approved
-    const { data: pendingVendors } = await supabase
-      .from('vendors')
-      .select('status')
-      .eq('email', normalizedEmail);
-
-    if (pendingVendors && pendingVendors.length > 0) {
-      const status = pendingVendors[0].status;
-      if (status === 'Pending') {
-        throw new Error('Your vendor registration is pending approval. Please wait for the manager to approve your account.');
-      }
-      if (status === 'Rejected') {
-        throw new Error('Your vendor registration was rejected. Please contact support.');
-      }
-    }
-
-    throw new Error('Invalid email or password. Please check your credentials.');
+    throw new Error('Invalid email, Organization ID, or password. Please check your credentials.');
   },
 
   getCurrentSession: async () => {
