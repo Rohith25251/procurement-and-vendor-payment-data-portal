@@ -8,8 +8,8 @@ import { StatusBadge } from '../../components/common/StatusBadge';
 import { Modal } from '../../components/common/Modal';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { useToast } from '../../context/ToastContext';
-import { 
-  ShoppingCart, Plus, CheckCircle, XCircle, Eye, Trash2, Calendar, FileText, Package, Edit 
+import {
+  ShoppingCart, Plus, CheckCircle, Eye, Trash2, Calendar, FileText, Package, Edit, CreditCard
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -372,7 +372,13 @@ export const ManagerProcurement = () => {
   });
 
   const allStatuses = [
-    'Invoice Requested', 'Invoice Generated', 'Paid', 'Out for Delivery', 'Delivered'
+    'Invoice Requested',
+    'Invoice Accepted',
+    'Invoice Declined',
+    'Shipped',
+    'Out for Delivery',
+    'Delivered',
+    'Paid'
   ];
 
   return (
@@ -441,6 +447,7 @@ export const ManagerProcurement = () => {
                     </td>
                     <td className="py-4 px-6 text-right">
                       <div className="flex items-center justify-end gap-1.5">
+                        {/* Edit & delete only on Invoice Requested (before vendor accepts) */}
                         {po.status === 'Invoice Requested' && (
                           <>
                             <button
@@ -461,6 +468,8 @@ export const ManagerProcurement = () => {
                             </button>
                           </>
                         )}
+
+                        {/* Confirm Delivery when goods are out for delivery */}
                         {po.status === 'Out for Delivery' && (
                           <button
                             onClick={() => handleConfirmDelivery(po.id)}
@@ -470,6 +479,19 @@ export const ManagerProcurement = () => {
                             <span>Confirm Delivery</span>
                           </button>
                         )}
+
+                        {/* Process Payment — available from Invoice Accepted onwards (before or after delivery) */}
+                        {['Invoice Accepted', 'Shipped', 'Out for Delivery', 'Delivered'].includes(po.status) && (
+                          <button
+                            onClick={() => navigate('/manager/invoices')}
+                            className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow-sm transition-colors"
+                            title="Go to Invoices to process payment"
+                          >
+                            <CreditCard className="w-3.5 h-3.5" />
+                            <span>Process Payment</span>
+                          </button>
+                        )}
+
                         <button
                           onClick={() => navigate(`/manager/procurement/${po.id}`)}
                           className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg flex items-center gap-1"
