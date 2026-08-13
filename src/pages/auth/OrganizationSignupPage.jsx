@@ -97,16 +97,16 @@ export const OrganizationSignupPage = () => {
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-emerald-100 mb-6">
             <CheckCircle className="w-10 h-10 text-emerald-600" />
           </div>
-          <h1 className="text-2xl font-black text-slate-900 mb-2">Organization Registration Submitted!</h1>
+          <h1 className="text-2xl font-black text-slate-900 mb-2">Organization Registered Successfully!</h1>
           <p className="text-sm text-slate-500 leading-relaxed mb-8">
-            Your organization registration request has been submitted to ProcureHub. Super Admin will verify your company details and approve your account.
+            Your organization has been registered successfully. You can log in and set up your workspace immediately.
           </p>
           <div className="bg-primary-50 border border-primary-200 rounded-2xl p-4 text-left mb-8">
-            <p className="text-xs font-bold text-primary-800 mb-1">What happens next?</p>
+            <p className="text-xs font-bold text-primary-800 mb-1">Getting Started:</p>
             <ul className="text-xs text-primary-700 space-y-1 list-disc list-inside">
-              <li>Super Admin reviews your company submission</li>
-              <li>You will receive an email upon verification approval</li>
               <li>Log in with your registered email &amp; password</li>
+              <li>Add team members &amp; roles</li>
+              <li>Start creating purchase orders &amp; requesting invoices</li>
             </ul>
           </div>
           <button

@@ -25,16 +25,67 @@ export const notificationApi = {
       console.warn("Notifications query failed:", error.message);
       return [];
     }
+
+    // Fetch all vendors to dynamically filter out onboarding notifications for already processed vendor requests
+    const { data: vendors } = await supabase
+      .from('vendors')
+      .select('id, name, status');
+
+    const vendorMap = new Map();
+    if (vendors) {
+      vendors.forEach(v => {
+        vendorMap.set(v.id, v);
+        vendorMap.set(v.name.toLowerCase().trim(), v);
+      });
+    }
+
     const procureSession = JSON.parse(localStorage.getItem('procure_session') || '{}');
     const userRole = procureSession?.user?.role || 'manager';
     const userVendorId = procureSession?.user?.vendorId;
 
     const filtered = data.filter(n => {
+      // 1. Role match check
+      let roleMatch = false;
       if (userRole === 'manager') {
-        return n.recipient_role === 'manager' || n.recipient_role === 'organization' || n.recipient_role === 'all';
+        roleMatch = n.recipient_role === 'manager' || n.recipient_role === 'organization' || n.recipient_role === 'all';
       } else if (userRole === 'vendor') {
-        return (n.recipient_role === 'vendor' && (!n.vendor_id || n.vendor_id === userVendorId)) || n.recipient_role === 'all';
+        roleMatch = (n.recipient_role === 'vendor' && (!n.vendor_id || n.vendor_id === userVendorId)) || n.recipient_role === 'all';
+      } else {
+        roleMatch = true;
       }
+
+      if (!roleMatch) return false;
+
+      // 2. Filter out onboarding notifications if already processed
+      if (n.type === 'vendor_onboarding') {
+        if (n.recipient_role === 'manager' || n.recipient_role === 'organization') {
+          let vendorStatus = 'Pending';
+          if (n.vendor_id && vendorMap.has(n.vendor_id)) {
+            vendorStatus = vendorMap.get(n.vendor_id).status;
+          } else if (n.message) {
+            // Match via vendor name in the message
+            const match = n.message.match(/(.*?) has submitted a registration request/);
+            if (match) {
+              const name = match[1].toLowerCase().trim();
+              if (vendorMap.has(name)) {
+                vendorStatus = vendorMap.get(name).status;
+              }
+            }
+          }
+          if (vendorStatus !== 'Pending') {
+            return false;
+          }
+        } else if (n.recipient_role === 'vendor') {
+          const vId = n.vendor_id || userVendorId;
+          if (vId && vendorMap.has(vId)) {
+            const vendor = vendorMap.get(vId);
+            if (vendor.status === 'Approved' || vendor.status === 'Rejected') {
+              return false;
+            }
+          }
+        }
+      }
+
       return true;
     });
 

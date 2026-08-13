@@ -66,7 +66,7 @@ export const vendorApi = {
       email: formData.email.toLowerCase().trim(),
       phone: formData.phone,
       category: formData.category,
-      status: 'Pending',
+      status: 'Approved',
       score: 100.0,
       address: formData.address || null,
       gstin: formData.gstin ? formData.gstin.toUpperCase() : null,
@@ -86,6 +86,7 @@ export const vendorApi = {
     try {
       await notificationApi.createNotification({
         recipientRole: 'manager',
+        vendorId: data[0].id,
         title: 'New Vendor Registration',
         message: `${formData.name} has submitted a registration request.`,
         type: 'vendor_onboarding',
@@ -134,6 +135,18 @@ export const vendorApi = {
       console.warn('Failed to send vendor approval notification', notifErr);
     }
 
+    // Clean up manager's registration notification for this vendor
+    try {
+      await supabase
+        .from('notifications')
+        .delete()
+        .eq('vendor_id', id)
+        .eq('type', 'vendor_onboarding')
+        .eq('recipient_role', 'manager');
+    } catch (err) {
+      console.warn('Failed to delete manager onboarding notification', err);
+    }
+
     return {
       vendor: mapDBToVendor(data[0]),
       loginEmail: vendorRecord.email,
@@ -160,6 +173,18 @@ export const vendorApi = {
       });
     } catch (notifErr) {
       console.warn('Failed to send vendor rejection notification', notifErr);
+    }
+
+    // Clean up manager's registration notification for this vendor
+    try {
+      await supabase
+        .from('notifications')
+        .delete()
+        .eq('vendor_id', id)
+        .eq('type', 'vendor_onboarding')
+        .eq('recipient_role', 'manager');
+    } catch (err) {
+      console.warn('Failed to delete manager onboarding notification', err);
     }
 
     return mapDBToVendor(data[0]);

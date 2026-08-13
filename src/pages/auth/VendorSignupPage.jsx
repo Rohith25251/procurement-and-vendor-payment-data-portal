@@ -102,17 +102,17 @@ export const VendorSignupPage = () => {
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-emerald-100 mb-6">
             <CheckCircle className="w-10 h-10 text-emerald-600" />
           </div>
-          <h1 className="text-2xl font-black text-slate-900 mb-2">Registration Submitted!</h1>
+          <h1 className="text-2xl font-black text-slate-900 mb-2">Registration Successful!</h1>
           <p className="text-sm text-slate-500 leading-relaxed mb-8">
-            Your vendor registration has been submitted successfully. Our team will review your details
-            and get back to you once your account is approved.
+            Your vendor registration has been completed successfully. You can now log in to the website
+            and start listing your products and managing orders immediately.
           </p>
           <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-left mb-8">
-            <p className="text-xs font-bold text-emerald-800 mb-1">What happens next?</p>
+            <p className="text-xs font-bold text-emerald-800 mb-1">Getting Started:</p>
             <ul className="text-xs text-emerald-700 space-y-1 list-disc list-inside">
-              <li>Manager reviews your submission</li>
-              <li>You'll be notified upon approval</li>
-              <li>Login with your registered email &amp; password</li>
+              <li>Log in with your registered email &amp; password</li>
+              <li>Set up your product catalog</li>
+              <li>Configure your payment settings</li>
             </ul>
           </div>
           <button
@@ -345,11 +345,10 @@ export const VendorSignupPage = () => {
               </div>
 
               {/* Notice */}
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 flex gap-2.5">
-                <Zap className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
-                <p className="text-xs text-amber-700 leading-relaxed">
-                  Your registration will be reviewed by our procurement team. You'll be able to log in only after approval. 
-                  This usually takes 1–2 business days.
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 flex gap-2.5">
+                <Zap className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-emerald-700 leading-relaxed">
+                  Registration is instant. Once submitted, you can log in to the Vendor Portal immediately using your email and password.
                 </p>
               </div>
 

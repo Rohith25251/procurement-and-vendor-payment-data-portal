@@ -66,6 +66,9 @@ export const authApi = {
       if (org.status === 'Rejected') {
         throw new Error('Your organization registration was rejected. Please contact support.');
       }
+      if (org.status === 'Deactivated' || org.status === 'Removed') {
+        throw new Error('Your organization account has been removed/deactivated due to repeated misbehavior.');
+      }
       const token = `mock-jwt-token-${org.id}-${Date.now()}`;
       const session = {
         user: {
@@ -100,6 +103,9 @@ export const authApi = {
       }
       if (vendor.status === 'Rejected') {
         throw new Error('Your vendor registration was rejected. Please contact support.');
+      }
+      if (vendor.status === 'Deactivated' || vendor.status === 'Removed') {
+        throw new Error('Your vendor account has been removed/deactivated due to repeated misbehavior.');
       }
       const token = `mock-jwt-token-${vendor.id}-${Date.now()}`;
       const session = {
@@ -242,7 +248,7 @@ export const authApi = {
       gstin: formData.gstin ? formData.gstin.toUpperCase() : null,
       address: formData.address || null,
       password: formData.password,
-      status: 'Pending',
+      status: 'Approved',
       joined_date: new Date().toISOString().split('T')[0],
     };
 
