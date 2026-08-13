@@ -882,20 +882,27 @@ export const InvoiceOCRModal = ({ isOpen, onClose, vendors = [], onRegister }) =
           // 🔍 Scanned image: Tesseract OCR
           setOcrStatus('Scanned PDF — running OCR engine…');
           setOcrProgress(20);
-          const worker = await createWorker('eng', 1, {
-            logger: m => {
-              if (m.status === 'recognizing text') {
-                setOcrProgress(Math.round(20 + m.progress * 60));
-                setOcrStatus(`OCR: ${Math.round(m.progress * 100)}%`);
+          try {
+            const worker = await createWorker('eng', 1, {
+              logger: m => {
+                if (m.status === 'recognizing text') {
+                  setOcrProgress(Math.round(20 + m.progress * 60));
+                  setOcrStatus(`OCR: ${Math.round(m.progress * 100)}%`);
+                }
               }
-            }
-          });
-          const { data: { text } } = await worker.recognize(imageDataUrl);
-          await worker.terminate();
-          rawExtracted = text;
-          // Build fake rows from OCR text for coordinate-based extractors
-          rows = rawExtracted.split('\n').filter(Boolean).map((line, i) => [{ x: 0, y: i * 12, str: line, page: 1 }]);
-          setOcrProgress(80);
+            });
+            const { data: { text } } = await worker.recognize(imageDataUrl);
+            await worker.terminate();
+            rawExtracted = text;
+            // Build fake rows from OCR text for coordinate-based extractors
+            rows = rawExtracted.split('\n').filter(Boolean).map((line, i) => [{ x: 0, y: i * 12, str: line, page: 1 }]);
+            setOcrProgress(80);
+          } catch (tessErr) {
+            console.warn('Tesseract OCR failed, using empty raw text:', tessErr);
+            rawExtracted = '';
+            rows = [];
+            setOcrProgress(80);
+          }
         }
 
         setRawText(rawExtracted);
