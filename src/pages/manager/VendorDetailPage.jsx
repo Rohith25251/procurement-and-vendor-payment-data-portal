@@ -170,50 +170,21 @@ export const VendorDetailPage = () => {
           </div>
         </div>
 
-        {/* Action Button & Governance Controls */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={handleOpenActivityTrail}
-            className="px-3.5 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold text-xs rounded-xl border border-purple-200 transition-colors flex items-center gap-1.5"
-            title="View User Recent Activity Trail"
-          >
-            <Activity className="w-4 h-4" />
-            <span>Activity Trail</span>
-          </button>
-
-          <button
-            onClick={() => setWarnDialog(true)}
-            className="px-3.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold text-xs rounded-xl border border-amber-200 transition-colors flex items-center gap-1.5"
-            title="Send Warning Notice"
-          >
-            <AlertTriangle className="w-4 h-4" />
-            <span>Warn</span>
-          </button>
-
-          {vendor.status !== 'Deactivated' && (
-            <button
-              onClick={() => setDeactivateDialog(true)}
-              className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs rounded-xl border border-rose-200 transition-colors flex items-center gap-1.5"
-              title="Deactivate Vendor Account"
-            >
-              <Power className="w-4 h-4" />
-              <span>Deactivate</span>
-            </button>
-          )}
-
+        {/* Action Button & Scorecard */}
+        <div className="flex items-center gap-4">
           <button
             onClick={() => handleOpenOrderModal(null)}
-            className="px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-primary-600/30 transition-smooth flex items-center gap-2"
+            className="px-4 py-2.5 bg-primary-600 hover:bg-primary-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-primary-600/30 transition-smooth flex items-center gap-2"
           >
             <ShoppingCart className="w-4 h-4" />
-            <span>Place Order</span>
+            <span>Place Order With Vendor</span>
           </button>
 
-          <div className="p-3 bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl flex items-center gap-3 shrink-0 shadow-md">
-            <Award className="w-6 h-6 text-amber-400" />
+          <div className="p-4 bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl flex items-center gap-3 shrink-0 shadow-md">
+            <Award className="w-7 h-7 text-amber-400" />
             <div>
               <p className="text-[10px] uppercase font-bold text-slate-400">Scorecard</p>
-              <p className="text-lg font-extrabold text-amber-400">{vendor.score}%</p>
+              <p className="text-xl font-extrabold text-amber-400">{vendor.score}%</p>
             </div>
           </div>
         </div>

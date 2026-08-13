@@ -290,67 +290,10 @@ export const ManagerVendors = () => {
                       <StatusBadge status={v.status} />
                     </td>
                     <td className="py-4 px-6 text-right" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center justify-end gap-1.5 flex-wrap">
-                        {/* Reactivation Request Review */}
-                        {v.reactivation_status === 'Pending' && (
-                          <div className="flex items-center gap-1 bg-amber-50 p-1 rounded-xl border border-amber-200">
-                            <span className="text-[10px] font-bold text-amber-800 px-1">Reactivation Appeal:</span>
-                            <button
-                              onClick={() => handleAcceptReactivation(v)}
-                              className="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-[10px]"
-                              title="Accept Reactivation Request"
-                            >
-                              Accept
-                            </button>
-                            <button
-                              onClick={() => handleDeclineReactivation(v)}
-                              className="px-2 py-0.5 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-lg text-[10px]"
-                              title="Decline Reactivation Request"
-                            >
-                              Decline
-                            </button>
-                          </div>
-                        )}
-
-                        {/* Activity Trail Button */}
-                        <button
-                          onClick={() => handleOpenActivityTrail(v)}
-                          className="px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold rounded-lg text-xs flex items-center gap-1 border border-purple-200 transition-colors"
-                          title="View user recent activity trail"
-                        >
-                          <Activity className="w-3.5 h-3.5" />
-                          <span>Activity Trail</span>
-                        </button>
-
-                        {/* Warn User */}
-                        <button
-                          onClick={() => setWarnDialog({ open: true, vendor: v })}
-                          className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold rounded-lg text-xs flex items-center gap-1 border border-amber-200 transition-colors"
-                          title="Issue Warning Notice"
-                        >
-                          <AlertTriangle className="w-3.5 h-3.5" />
-                          <span>Warn</span>
-                        </button>
-
-                        {/* Deactivate User */}
-                        {v.status !== 'Deactivated' ? (
-                          <button
-                            onClick={() => setDeactivateDialog({ open: true, vendor: v })}
-                            className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold rounded-lg text-xs flex items-center gap-1 border border-rose-200 transition-colors"
-                            title="Deactivate Account"
-                          >
-                            <Power className="w-3.5 h-3.5" />
-                            <span>Deactivate</span>
-                          </button>
-                        ) : (
-                          <span className="px-2 py-1 bg-slate-100 text-slate-500 font-bold rounded-lg text-xs border">
-                            Deactivated
-                          </span>
-                        )}
-
+                      <div className="flex items-center justify-end gap-1.5">
                         <button
                           onClick={() => navigate(`/manager/vendors/${v.id}`)}
-                          className="px-3 py-1 bg-primary-600 hover:bg-primary-500 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors shadow-xs"
+                          className="px-3.5 py-1.5 bg-primary-600 hover:bg-primary-500 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors shadow-xs"
                           title="View Vendor Catalog & Start Procurement"
                         >
                           <Eye className="w-3.5 h-3.5" />
