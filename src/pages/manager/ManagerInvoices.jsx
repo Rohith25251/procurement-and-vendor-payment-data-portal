@@ -44,10 +44,10 @@ export const ManagerInvoices = () => {
   const handleVerify = async (id) => {
     try {
       await invoiceApi.verifyInvoice(id);
-      showToast('Invoice accepted & queued for payment processing', 'success');
+      showToast('Invoice verified & pushed to payment processing queue', 'success');
       loadInvoices();
-    } catch (_err) {
-      showToast('Failed to accept invoice', 'error');
+    } catch (err) {
+      showToast('Failed to verify invoice', 'error');
     }
   };
 
