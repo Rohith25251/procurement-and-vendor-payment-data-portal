@@ -124,7 +124,7 @@ export const orderApi = {
     return mapDBToPO(data[0]);
   },
 
-  declineInvoice: async (id, reason, vendorName = 'Vendor') => {
+  vendorDeclineRequest: async (id, reason, vendorName = 'Vendor') => {
     const po = await orderApi.getOrderById(id);
     const updatedHistory = addHistoryEntry(po, 'Invoice Declined', `${vendorName} (Vendor)`);
 
@@ -143,8 +143,8 @@ export const orderApi = {
     try {
       await notificationApi.createNotification({
         recipientRole: 'manager',
-        title: 'Invoice Request Declined by Vendor',
-        message: `${vendorName} declined the invoice request for PO ${po.poNumber}. Reason: "${reason || 'No reason provided'}"`,
+        title: 'PO Request Declined by Vendor',
+        message: `${vendorName} declined PO request ${po.poNumber}. Reason: "${reason || 'No reason provided'}"`,
         type: 'po_status',
         link: '/manager/procurement'
       });
@@ -155,15 +155,19 @@ export const orderApi = {
     return mapDBToPO(data[0]);
   },
 
-  acceptInvoice: async (id, vendorName = 'Vendor') => {
+  vendorSubmitInvoice: async (id, invoiceData, vendorName = 'Vendor') => {
     const po = await orderApi.getOrderById(id);
     const nowFormatted = new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const updatedHistory = addHistoryEntry(po, 'Invoice Accepted', `${vendorName} (Vendor)`);
+    const updatedHistory = addHistoryEntry(po, 'Invoice Submitted', `${vendorName} (Vendor)`);
+
+    const amountSubmitted = Number(invoiceData.totalAmount) || po.totalAmount;
+    const invNumber = invoiceData.invoiceNumber || `INV-${po.poNumber.replace('PO-', '')}-${Math.floor(100 + Math.random() * 900)}`;
 
     const { data, error } = await supabase
       .from('purchase_orders')
       .update({
-        status: 'Invoice Accepted',
+        status: 'Invoice Submitted',
+        total_amount: amountSubmitted,
         query_comment: null,
         history: updatedHistory
       })
@@ -172,9 +176,8 @@ export const orderApi = {
 
     if (error) throw error;
 
-    // Auto-create invoice so manager can process payment at any time
+    // Create submitted invoice entry
     try {
-      const invNumber = `INV-${po.poNumber.replace('PO-', '')}-${Math.floor(100 + Math.random() * 900)}`;
       await supabase.from('invoices').insert({
         id: `inv_${Date.now()}`,
         invoice_number: invNumber,
@@ -182,28 +185,113 @@ export const orderApi = {
         po_number: po.poNumber,
         vendor_id: po.vendorId,
         vendor_name: po.vendorName,
-        total_amount: po.totalAmount,
+        total_amount: amountSubmitted,
         paid_amount: 0,
-        remaining_balance: po.totalAmount,
+        remaining_balance: amountSubmitted,
         status: 'Submitted',
-        submitted_at: nowFormatted,
-        pdf_url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
+        submitted_at: invoiceData.invoiceDate || nowFormatted,
+        pdf_url: invoiceData.pdfUrl || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
       });
     } catch (invErr) {
-      console.warn('Failed to auto-create invoice on acceptance', invErr);
+      console.warn('Failed to create submitted invoice:', invErr);
     }
 
     // Notify manager
     try {
       await notificationApi.createNotification({
         recipientRole: 'manager',
-        title: 'Invoice Accepted by Vendor',
-        message: `${vendorName} accepted the invoice for PO ${po.poNumber}. You can now process payment.`,
+        title: 'Invoice Submitted by Vendor',
+        message: `${vendorName} submitted Invoice ${invNumber} for ₹${amountSubmitted.toLocaleString('en-IN')} on PO ${po.poNumber}. Please review and accept or decline.`,
         type: 'po_status',
-        link: '/manager/invoices'
+        link: '/manager/procurement'
       });
     } catch (notifErr) {
-      console.warn('Failed to send invoice accept notification', notifErr);
+      console.warn('Failed to send invoice submission notification', notifErr);
+    }
+
+    return mapDBToPO(data[0]);
+  },
+
+  managerAcceptInvoice: async (id, managerName = 'Eleanor Vance') => {
+    const po = await orderApi.getOrderById(id);
+    const updatedHistory = addHistoryEntry(po, 'Invoice Accepted', `${managerName} (Manager)`);
+
+    const { data, error } = await supabase
+      .from('purchase_orders')
+      .update({
+        status: 'Invoice Accepted',
+        history: updatedHistory
+      })
+      .eq('id', id)
+      .select('*');
+
+    if (error) throw error;
+
+    // Update invoice status to Verified
+    try {
+      await supabase
+        .from('invoices')
+        .update({ status: 'Verified' })
+        .eq('po_id', id);
+    } catch (invErr) {
+      console.warn('Failed to update invoice status on manager accept', invErr);
+    }
+
+    // Notify vendor
+    try {
+      await notificationApi.createNotification({
+        recipientRole: 'vendor',
+        vendorId: po.vendorId,
+        title: 'Invoice Accepted by Manager',
+        message: `Manager accepted your invoice for PO ${po.poNumber}. You can now proceed to ship.`,
+        type: 'po_status',
+        link: '/vendor/orders'
+      });
+    } catch (notifErr) {
+      console.warn('Failed to send invoice accept notification to vendor', notifErr);
+    }
+
+    return mapDBToPO(data[0]);
+  },
+
+  managerDeclineInvoice: async (id, reason, managerName = 'Eleanor Vance') => {
+    const po = await orderApi.getOrderById(id);
+    const updatedHistory = addHistoryEntry(po, 'Invoice Declined', `${managerName} (Manager)`);
+
+    const { data, error } = await supabase
+      .from('purchase_orders')
+      .update({
+        status: 'Invoice Declined',
+        rejection_reason: reason || 'Does not meet requirements',
+        history: updatedHistory
+      })
+      .eq('id', id)
+      .select('*');
+
+    if (error) throw error;
+
+    // Update invoice status to Rejected
+    try {
+      await supabase
+        .from('invoices')
+        .update({ status: 'Rejected', rejection_reason: reason })
+        .eq('po_id', id);
+    } catch (invErr) {
+      console.warn('Failed to update invoice status on manager decline', invErr);
+    }
+
+    // Notify vendor
+    try {
+      await notificationApi.createNotification({
+        recipientRole: 'vendor',
+        vendorId: po.vendorId,
+        title: 'Invoice Declined by Manager',
+        message: `Manager declined your invoice for PO ${po.poNumber}. Reason: "${reason || 'Does not meet requirements'}"`,
+        type: 'po_status',
+        link: '/vendor/orders'
+      });
+    } catch (notifErr) {
+      console.warn('Failed to send invoice decline notification to vendor', notifErr);
     }
 
     return mapDBToPO(data[0]);
@@ -292,10 +380,13 @@ export const orderApi = {
     const po = await orderApi.getOrderById(id);
     const updatedHistory = addHistoryEntry(po, 'Delivered', `${managerName} (Manager)`);
 
+    const isAlreadyPaid = (po.history || []).some(h => h.status === 'Paid');
+    const newStatus = isAlreadyPaid ? 'Paid' : 'Delivered';
+
     const { data, error } = await supabase
       .from('purchase_orders')
       .update({
-        status: 'Delivered',
+        status: newStatus,
         history: updatedHistory
       })
       .eq('id', id)
@@ -309,9 +400,9 @@ export const orderApi = {
         recipientRole: 'vendor',
         vendorId: po.vendorId,
         title: 'PO Delivery Confirmed',
-        message: `Manager has confirmed delivery for PO ${po.poNumber}. You can now submit your invoice.`,
+        message: `Manager has confirmed delivery for PO ${po.poNumber}.`,
         type: 'po_status',
-        link: '/vendor/invoices'
+        link: '/vendor/orders'
       });
     } catch (notifErr) {
       console.warn('Failed to send vendor PO delivery confirmation notification', notifErr);

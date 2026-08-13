@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { orderApi } from '../../api/orderApi';
+import { invoiceApi } from '../../api/invoiceApi';
 import { vendorApi } from '../../api/vendorApi';
 import { productApi } from '../../api/productApi';
 import { SearchFilterBar } from '../../components/common/SearchFilterBar';
@@ -17,6 +18,7 @@ export const ManagerProcurement = () => {
   const [orders, setOrders] = useState([]);
   const [vendors, setVendors] = useState([]);
   const [vendorProducts, setVendorProducts] = useState([]);
+  const [paidPoIds, setPaidPoIds] = useState(new Set()); // PO IDs that already have a paid invoice
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -25,7 +27,11 @@ export const ManagerProcurement = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedPo, setSelectedPo] = useState(null);
+  const [invoices, setInvoices] = useState([]);
+  const [selectedInvoiceView, setSelectedInvoiceView] = useState(null);
+  const [isViewInvoiceModalOpen, setIsViewInvoiceModalOpen] = useState(false);
   const [rejectDialog, setRejectDialog] = useState({ open: false, orderId: null });
+  const [declineInvoiceDialog, setDeclineInvoiceDialog] = useState({ open: false, orderId: null });
   const [deletePoDialog, setDeletePoDialog] = useState({ open: false, orderId: null });
 
   // Catalog Product Details Popup state
@@ -50,13 +56,23 @@ export const ManagerProcurement = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [orderData, vendorData] = await Promise.all([
+      const [orderData, vendorData, invoiceData] = await Promise.all([
         orderApi.getOrders(),
-        vendorApi.getVendors()
+        vendorApi.getVendors(),
+        invoiceApi.getInvoices()
       ]);
       setOrders(orderData);
+      setInvoices(invoiceData || []);
       const approved = vendorData.filter(v => v.status === 'Approved');
       setVendors(approved);
+
+      // Build set of PO IDs where invoice is already fully Paid
+      const paidIds = new Set(
+        invoiceData
+          .filter(inv => inv.status === 'Paid' && inv.poId)
+          .map(inv => inv.poId)
+      );
+      setPaidPoIds(paidIds);
 
       if (approved.length > 0) {
         const initialVendorId = poForm.vendorId || approved[0].id;
@@ -187,6 +203,43 @@ export const ManagerProcurement = () => {
     } catch (err) {
       showToast('Failed to confirm delivery', 'error');
     }
+  };
+
+  const handleManagerAcceptInvoice = async (id) => {
+    try {
+      await orderApi.managerAcceptInvoice(id, 'Eleanor Vance');
+      showToast('Invoice accepted! Vendor notified to ship order.', 'success');
+      loadData();
+    } catch (_err) {
+      showToast('Failed to accept invoice', 'error');
+    }
+  };
+
+  const handleManagerDeclineInvoice = async (reason) => {
+    if (!declineInvoiceDialog.orderId) return;
+    try {
+      await orderApi.managerDeclineInvoice(declineInvoiceDialog.orderId, reason, 'Eleanor Vance');
+      showToast('Invoice declined. Vendor notified.', 'warning');
+      setDeclineInvoiceDialog({ open: false, orderId: null });
+      loadData();
+    } catch (_err) {
+      showToast('Failed to decline invoice', 'error');
+    }
+  };
+
+  const handleViewInvoice = (po) => {
+    const matchingInv = invoices.find(inv => inv.poId === po.id || inv.poNumber === po.poNumber);
+    const invDetails = matchingInv || {
+      invoiceNumber: `INV-${po.poNumber.replace('PO-', '')}`,
+      poNumber: po.poNumber,
+      vendorName: po.vendorName,
+      totalAmount: po.totalAmount,
+      submittedAt: po.createdDate,
+      status: po.status === 'Invoice Submitted' ? 'Submitted' : po.status,
+      items: po.items || []
+    };
+    setSelectedInvoiceView({ po, invoice: invDetails });
+    setIsViewInvoiceModalOpen(true);
   };
 
   const handleRejectConfirm = async (reason) => {
@@ -480,8 +533,41 @@ export const ManagerProcurement = () => {
                           </button>
                         )}
 
-                        {/* Process Payment — available from Invoice Accepted onwards (before or after delivery) */}
-                        {['Invoice Accepted', 'Shipped', 'Out for Delivery', 'Delivered'].includes(po.status) && (
+
+                        {/* Manager reviews Submitted Invoice */}
+                        {po.status === 'Invoice Submitted' && (
+                          <>
+                            <button
+                              onClick={() => handleViewInvoice(po)}
+                              className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold rounded-lg text-xs flex items-center gap-1 border border-blue-200 transition-colors"
+                              title="View submitted invoice details"
+                            >
+                              <FileText className="w-3.5 h-3.5" />
+                              <span>View Invoice</span>
+                            </button>
+                            <button
+                              onClick={() => handleManagerAcceptInvoice(po.id)}
+                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow-sm transition-colors"
+                              title="Accept submitted invoice"
+                            >
+                              <CheckCircle className="w-3.5 h-3.5" />
+                              <span>Accept Invoice</span>
+                            </button>
+                            <button
+                              onClick={() => setDeclineInvoiceDialog({ open: true, orderId: po.id })}
+                              className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold rounded-lg text-xs flex items-center gap-1 border border-rose-200 transition-colors"
+                              title="Decline submitted invoice"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Decline Invoice</span>
+                            </button>
+                          </>
+                        )}
+
+                        {/* Process Payment — only show if PO is not yet paid and no paid invoice exists */}
+                        {['Invoice Accepted', 'Shipped', 'Out for Delivery', 'Delivered'].includes(po.status) &&
+                          po.status !== 'Paid' &&
+                          !paidPoIds.has(po.id) && (
                           <button
                             onClick={() => navigate('/manager/invoices')}
                             className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow-sm transition-colors"
@@ -954,6 +1040,117 @@ export const ManagerProcurement = () => {
           </div>
         )}
       </Modal>
+      {/* View Submitted Invoice Modal */}
+      <Modal
+        isOpen={isViewInvoiceModalOpen}
+        onClose={() => setIsViewInvoiceModalOpen(false)}
+        title={`Invoice Details: ${selectedInvoiceView?.invoice?.invoiceNumber || ''}`}
+        maxWidth="max-w-2xl"
+      >
+        {selectedInvoiceView && (
+          <div className="space-y-4 text-xs">
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400">Invoice Number</span>
+                <h3 className="text-lg font-extrabold text-slate-900">{selectedInvoiceView.invoice.invoiceNumber}</h3>
+                <p className="text-slate-500 text-xs font-mono">PO Ref: {selectedInvoiceView.po.poNumber}</p>
+              </div>
+              <div className="text-right">
+                <StatusBadge status={selectedInvoiceView.invoice.status || selectedInvoiceView.po.status} />
+                <p className="text-[10px] text-slate-400 mt-1">Submitted: {selectedInvoiceView.invoice.submittedAt || selectedInvoiceView.po.createdDate}</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200/80">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400">Vendor Name</span>
+                <p className="font-extrabold text-slate-900 text-sm mt-0.5">{selectedInvoiceView.po.vendorName}</p>
+                <p className="text-slate-500 text-[11px]">{selectedInvoiceView.po.category}</p>
+              </div>
+              <div className="text-right">
+                <span className="text-[10px] uppercase font-bold text-slate-400">Total Invoice Amount</span>
+                <p className="font-extrabold text-emerald-600 text-lg mt-0.5">₹{selectedInvoiceView.invoice.totalAmount?.toLocaleString('en-IN')} INR</p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <h4 className="font-bold text-slate-900">Line Items</h4>
+              <div className="border border-slate-200 rounded-xl overflow-hidden">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-100/80 text-[10px] font-bold uppercase text-slate-500 border-b">
+                      <th className="p-2.5">Item Description</th>
+                      <th className="p-2.5 text-center">Qty</th>
+                      <th className="p-2.5 text-right">Unit Price</th>
+                      <th className="p-2.5 text-right">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {(selectedInvoiceView.invoice.items?.length ? selectedInvoiceView.invoice.items : selectedInvoiceView.po.items)?.map((item, idx) => (
+                      <tr key={idx}>
+                        <td className="p-2.5 font-semibold text-slate-800">{item.description || item.name}</td>
+                        <td className="p-2.5 text-center">{item.quantity}</td>
+                        <td className="p-2.5 text-right">₹{Number(item.unitPrice).toLocaleString('en-IN')}</td>
+                        <td className="p-2.5 text-right font-bold text-slate-900">₹{Number(item.total || (item.quantity * item.unitPrice)).toLocaleString('en-IN')}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {selectedInvoiceView.po.status === 'Invoice Submitted' && (
+              <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between gap-3 mt-4">
+                <span className="text-xs font-semibold text-amber-900">Review vendor invoice and choose action:</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      setIsViewInvoiceModalOpen(false);
+                      handleManagerAcceptInvoice(selectedInvoiceView.po.id);
+                    }}
+                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow-xs"
+                  >
+                    <CheckCircle className="w-3.5 h-3.5" />
+                    <span>Accept Invoice</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsViewInvoiceModalOpen(false);
+                      setDeclineInvoiceDialog({ open: true, orderId: selectedInvoiceView.po.id });
+                    }}
+                    className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold rounded-lg text-xs flex items-center gap-1 border border-rose-200"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Decline Invoice</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end pt-2 border-t">
+              <button
+                onClick={() => setIsViewInvoiceModalOpen(false)}
+                className="px-4 py-2 font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Decline Invoice Dialog */}
+      <ConfirmDialog
+        isOpen={declineInvoiceDialog.open}
+        onClose={() => setDeclineInvoiceDialog({ open: false, orderId: null })}
+        onConfirm={handleManagerDeclineInvoice}
+        title="Decline Submitted Invoice"
+        message="Are you sure you want to decline this submitted invoice? Please provide a reason for the vendor."
+        confirmText="Decline Invoice"
+        cancelText="Cancel"
+        type="danger"
+        requireReason={true}
+      />
     </div>
   );
 };

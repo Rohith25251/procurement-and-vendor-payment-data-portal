@@ -86,18 +86,24 @@ export const paymentApi = {
 
     if (invError) throw invError;
 
-    // If fully paid, update PO status to "Paid"
+    // If fully paid, update PO history with "Paid" but preserve delivery status if not yet delivered
     if (isFullyPaid && invoice.poId) {
       try {
         const po = await orderApi.getOrderById(invoice.poId);
         const history = po.history || [];
         const timestamp = new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        const updatedHistory = [...history, { status: 'Paid', timestamp, actor: `${managerName} (Manager)` }];
+        
+        // Avoid duplicate Paid entries in history
+        const hasPaidHistory = history.some(h => h.status === 'Paid');
+        const updatedHistory = hasPaidHistory ? history : [...history, { status: 'Paid', timestamp, actor: `${managerName} (Manager)` }];
+
+        // Only transition PO status to 'Paid' if it was already Delivered
+        const newPoStatus = po.status === 'Delivered' ? 'Paid' : po.status;
 
         await supabase
           .from('purchase_orders')
           .update({
-            status: 'Paid',
+            status: newPoStatus,
             history: updatedHistory
           })
           .eq('id', invoice.poId);

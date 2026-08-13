@@ -1,11 +1,12 @@
 import React from 'react';
 import { 
   FilePlus, CheckCircle, Send, CheckCheck, Truck, FileText, 
-  ShieldCheck, IndianRupee, AlertCircle, HelpCircle, XCircle 
+  IndianRupee, AlertCircle, XCircle 
 } from 'lucide-react';
 
 const STEPS = [
   { id: 'Invoice Requested', label: 'Invoice Requested', icon: FilePlus },
+  { id: 'Invoice Submitted', label: 'Invoice Submitted', icon: FileText },
   { id: 'Invoice Accepted', label: 'Invoice Accepted', icon: CheckCheck },
   { id: 'Shipped', label: 'Shipped', icon: Send },
   { id: 'Out for Delivery', label: 'Out for Delivery', icon: Truck },
@@ -18,13 +19,31 @@ export const OrderStatusTracker = ({ currentStatus, history = [], queryComment, 
   const isRejected = currentStatus === 'Rejected';
   const isTerminal = isDeclined || isRejected;
 
-  const getCurrentIndex = () => {
-    if (isTerminal) return 0;
-    const idx = STEPS.findIndex(s => s.id === currentStatus);
-    return idx !== -1 ? idx : 0;
+  // Helper: check if a status exists in history
+  const hasHistory = (statusNames) => {
+    if (isTerminal) return false;
+    const names = Array.isArray(statusNames) ? statusNames : [statusNames];
+    return history.some(h => names.includes(h.status));
   };
 
-  const currentIndex = getCurrentIndex();
+  // Determine individual step completion
+  const isRequestedDone = !isTerminal;
+  const isSubmittedDone = hasHistory(['Invoice Submitted', 'Invoice Generated']) || ['Invoice Submitted', 'Invoice Accepted', 'Shipped', 'Out for Delivery', 'Delivered', 'Paid'].includes(currentStatus);
+  const isAcceptedDone  = hasHistory(['Invoice Accepted', 'Accepted']) || ['Invoice Accepted', 'Shipped', 'Out for Delivery', 'Delivered', 'Paid'].includes(currentStatus);
+  const isShippedDone   = hasHistory(['Shipped']) || ['Shipped', 'Out for Delivery', 'Delivered'].includes(currentStatus) || (currentStatus === 'Paid' && hasHistory(['Shipped']));
+  const isOutDone       = hasHistory(['Out for Delivery']) || ['Out for Delivery', 'Delivered'].includes(currentStatus) || (currentStatus === 'Paid' && hasHistory(['Out for Delivery']));
+  const isDeliveredDone = hasHistory(['Delivered']) || currentStatus === 'Delivered' || (currentStatus === 'Paid' && hasHistory(['Delivered']));
+  const isPaidDone      = hasHistory(['Paid']) || currentStatus === 'Paid';
+
+  const stepCompletionMap = {
+    'Invoice Requested': isRequestedDone,
+    'Invoice Submitted': isSubmittedDone,
+    'Invoice Accepted':  isAcceptedDone,
+    'Shipped':           isShippedDone,
+    'Out for Delivery':  isOutDone,
+    'Delivered':         isDeliveredDone,
+    'Paid':              isPaidDone,
+  };
 
   const getStepTimestamp = (stepId) => {
     const entry = history.find(h => h.status === stepId);
@@ -56,24 +75,23 @@ export const OrderStatusTracker = ({ currentStatus, history = [], queryComment, 
 
       {/* Stepper Grid */}
       <div className="relative overflow-x-auto pb-4">
-        <div className="min-w-[720px] flex items-center justify-between">
+        <div className="min-w-[760px] flex items-center justify-between">
           {STEPS.map((step, idx) => {
             const Icon = step.icon;
-            const isCompleted = !isTerminal && idx < currentIndex;
-            const isCurrent = !isTerminal && idx === currentIndex;
+            const isCompleted = !isTerminal && stepCompletionMap[step.id];
+            const nextStep = STEPS[idx + 1];
+            const nextIsCompleted = nextStep && !isTerminal && stepCompletionMap[nextStep.id];
+            
+            // Connecting line is green ONLY IF both current step and next step are completed
+            const isLineGreen = isCompleted && nextIsCompleted;
             const timestamp = getStepTimestamp(step.id);
 
             let circleStyle = "bg-slate-100 text-slate-400 border-slate-200";
-            let lineStyle = "bg-slate-200";
             let labelStyle = "text-slate-400 font-medium";
 
             if (isCompleted) {
               circleStyle = "bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/20";
-              lineStyle = "bg-emerald-600";
               labelStyle = "text-slate-800 font-bold";
-            } else if (isCurrent) {
-              circleStyle = "bg-primary-600 text-white border-primary-600 ring-4 ring-primary-100";
-              labelStyle = "text-primary-700 font-extrabold";
             } else if (isTerminal && idx === 0) {
               circleStyle = "bg-rose-600 text-white border-rose-600 ring-4 ring-rose-100";
               labelStyle = "text-rose-700 font-bold";
@@ -83,7 +101,7 @@ export const OrderStatusTracker = ({ currentStatus, history = [], queryComment, 
               <div key={step.id} className="relative flex flex-col items-center flex-1 text-center">
                 {/* Connecting Line */}
                 {idx < STEPS.length - 1 && (
-                  <div className={`absolute top-5 left-1/2 w-full h-1 ${lineStyle} z-0 transition-colors duration-500`} />
+                  <div className={`absolute top-5 left-1/2 w-full h-1 ${isLineGreen ? 'bg-emerald-600' : 'bg-slate-200'} z-0 transition-colors duration-500`} />
                 )}
 
                 {/* Circle Icon */}

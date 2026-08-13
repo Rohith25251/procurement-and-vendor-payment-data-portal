@@ -46,8 +46,8 @@ export const ManagerPayments = () => {
         vendorApi.getVendors()
       ]);
 
-      // Submitted or partially paid invoices ready for payment
-      const ready = allInvoices.filter(i => i.status === 'Submitted' || i.status === 'Partially Paid');
+      // Submitted, Verified, or partially paid invoices ready for payment
+      const ready = allInvoices.filter(i => ['Submitted', 'Verified', 'Partially Paid'].includes(i.status));
       setInvoicesReady(ready);
       setPaymentsList(payments);
       // All registered vendors available for selection in OCR modal
