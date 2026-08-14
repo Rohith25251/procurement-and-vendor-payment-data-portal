@@ -23,6 +23,15 @@ export const VendorDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const { showToast } = useToast();
 
+  // Quick Order Modal State
+  const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
+  const [orderForm, setOrderForm] = useState({
+    selectedProductId: '',
+    quantity: 10,
+    expectedDeliveryDate: '',
+    notes: ''
+  });
+
   // Governance Modals
   const [activityTrailModal, setActivityTrailModal] = useState({ open: false, logs: [] });
   const [warnDialog, setWarnDialog] = useState(false);
