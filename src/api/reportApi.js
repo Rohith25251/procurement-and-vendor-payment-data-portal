@@ -1,17 +1,23 @@
 import { supabase } from '../supabaseClient';
+import { isPOForOrganization, filterInvoicesForOrganization, filterPaymentsForOrganization } from '../utils/orgFilter';
 
 export const reportApi = {
-  getReportData: async () => {
+  getReportData: async (user = null) => {
     // 1. Fetch tables from Supabase
-    const { data: invoices, error: invErr } = await supabase.from('invoices').select('*');
-    const { data: purchaseOrders, error: poErr } = await supabase.from('purchase_orders').select('*');
+    const { data: rawInvoices, error: invErr } = await supabase.from('invoices').select('*');
+    const { data: rawPOs, error: poErr } = await supabase.from('purchase_orders').select('*');
     const { data: vendors, error: vndErr } = await supabase.from('vendors').select('*');
-    const { data: payments, error: pmtErr } = await supabase.from('payments').select('*');
+    const { data: rawPayments, error: pmtErr } = await supabase.from('payments').select('*');
 
     if (invErr) throw invErr;
     if (poErr) throw poErr;
     if (vndErr) throw vndErr;
     if (pmtErr) throw pmtErr;
+
+    // Filter purchase orders strictly for current organization
+    const purchaseOrders = (rawPOs || []).filter(po => isPOForOrganization(po, user));
+    const invoices = filterInvoicesForOrganization(rawInvoices || [], purchaseOrders, user);
+    const payments = filterPaymentsForOrganization(rawPayments || [], invoices, purchaseOrders, user);
 
     // Calculate total spend (sum of all disbursements in payments)
     const totalSpend = payments.reduce((acc, p) => acc + (Number(p.amount_paid) || 0), 0);
@@ -21,7 +27,7 @@ export const reportApi = {
 
     const hasData = purchaseOrders.length > 0 || payments.length > 0 || invoices.length > 0;
 
-    // Generate a continuous last 6 months timeline dynamically to make the line chart draw beautifully
+    // Generate a continuous last 6 months timeline dynamically
     const monthlyMap = {};
     const today = new Date();
     for (let i = 5; i >= 0; i--) {
@@ -39,7 +45,6 @@ export const reportApi = {
       if (!p.payment_date) return;
       const date = new Date(p.payment_date);
       const monthStr = date.toLocaleString('default', { month: 'short', year: 'numeric' });
-      // Only record if it falls in our active 6 months window
       if (monthlyMap[monthStr]) {
         monthlyMap[monthStr].spend += Number(p.amount_paid) || 0;
       }
@@ -54,7 +59,6 @@ export const reportApi = {
       }
     });
 
-    // Also count external OCR invoices in the monthly trend
     externalInvoices.forEach(inv => {
       if (!inv.submitted_at) return;
       const date = new Date(inv.submitted_at);
@@ -66,7 +70,7 @@ export const reportApi = {
 
     const monthlySpendTrend = Object.values(monthlyMap);
 
-    // Initialize 4 standard categories with 0 values so that charts look balanced
+    // Categories initialization
     const categoryMap = {
       'Hardware & Raw Materials': 0,
       'IT & Software Services': 0,
@@ -86,7 +90,6 @@ export const reportApi = {
       overallPOSpend += amt;
     });
 
-    // Include external OCR invoices in category spend (map vendor → category)
     const vendorCategoryMap = {};
     vendors.forEach(v => { vendorCategoryMap[v.id] = v.category || 'Hardware & Raw Materials'; });
 
@@ -107,7 +110,6 @@ export const reportApi = {
       percentage: overallPOSpend > 0 ? Math.round((categoryMap[cat] / overallPOSpend) * 100) : 0
     }));
 
-    // Map vendor spend list dynamically — include both PO spend and external invoice spend
     const vendorSpendList = vendors.map(v => {
       const vOrders = purchaseOrders.filter(o => o.vendor_id === v.id || o.vendor_id === v.user_id);
       const vPOSpend = vOrders.reduce((acc, o) => acc + (Number(o.total_amount) || 0), 0);
@@ -133,7 +135,7 @@ export const reportApi = {
         totalSpend,
         activeVendorsCount: vendors.filter(v => v.status === 'Approved').length,
         avgOnTimeDelivery: `${avgOnTimeDelivery}%`,
-        totalPOProcessed: purchaseOrders.length + externalInvoices.length // include external invoices in count
+        totalPOProcessed: purchaseOrders.length + externalInvoices.length
       },
       monthlySpendTrend,
       categorySpend,

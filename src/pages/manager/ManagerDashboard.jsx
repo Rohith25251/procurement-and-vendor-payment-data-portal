@@ -16,6 +16,8 @@ import {
 } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 
+import { isPOForOrganization, filterInvoicesForOrganization, filterPaymentsForOrganization } from '../../utils/orgFilter';
+
 export const ManagerDashboard = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -33,13 +35,17 @@ export const ManagerDashboard = () => {
     const fetchDashboardData = async () => {
       setLoading(true);
       try {
-        const [orders, vendors, invoices, payments, report] = await Promise.all([
+        const [rawOrders, vendors, rawInvoices, rawPayments, report] = await Promise.all([
           orderApi.getOrders(),
           vendorApi.getVendors(),
           invoiceApi.getInvoices(),
           paymentApi.getPayments(),
-          reportApi.getReportData()
+          reportApi.getReportData(user)
         ]);
+
+        const orders = rawOrders.filter(o => isPOForOrganization(o, user));
+        const invoices = filterInvoicesForOrganization(rawInvoices, orders, user);
+        const payments = filterPaymentsForOrganization(rawPayments, invoices, orders, user);
 
         const pendingApprovalsCount = orders.filter(o => o.status === 'Invoice Requested').length + 
                                       invoices.filter(i => i.status === 'Submitted').length +
@@ -71,8 +77,10 @@ export const ManagerDashboard = () => {
       }
     };
 
-    fetchDashboardData();
-  }, []);
+    if (user) {
+      fetchDashboardData();
+    }
+  }, [user]);
 
   const CATEGORY_COLORS = ['#0369A3', '#18A303', '#8B5CF6', '#F59E0B'];
 

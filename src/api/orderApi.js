@@ -77,10 +77,15 @@ export const orderApi = {
     const poNumber = `PO-2026-${String(nextNum).padStart(3, '0')}`;
     const today = new Date().toISOString().split('T')[0];
 
-    const tempPO = {
-      history: []
-    };
-    const initialHistory = addHistoryEntry(tempPO, 'Invoice Requested', `${managerName} (Manager)`);
+    const orgTag = orderData.companyName || orderData.organizationName || 'Manager';
+    const actorName = `${managerName} (${orgTag})`;
+    const initialHistory = [{
+      status: 'Invoice Requested',
+      timestamp: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      actor: actorName,
+      orgId: orderData.organizationId || orderData.orgId,
+      orgName: orgTag
+    }];
 
     const dbData = {
       id: orderData.id || `po_${Date.now()}`,

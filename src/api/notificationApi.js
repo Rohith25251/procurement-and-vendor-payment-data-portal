@@ -1,4 +1,5 @@
 import { supabase } from '../supabaseClient';
+import { isPOForOrganization } from '../utils/orgFilter';
 
 const mapDBToNotification = (n) => {
   if (!n) return null;
@@ -26,10 +27,11 @@ export const notificationApi = {
       return [];
     }
 
-    // Fetch all vendors to dynamically filter out onboarding notifications for already processed vendor requests
-    const { data: vendors } = await supabase
-      .from('vendors')
-      .select('id, name, status');
+    // Fetch vendors and purchase orders for tenant-level notification matching
+    const [{ data: vendors }, { data: pos }] = await Promise.all([
+      supabase.from('vendors').select('id, name, status'),
+      supabase.from('purchase_orders').select('*')
+    ]);
 
     const vendorMap = new Map();
     if (vendors) {
@@ -39,19 +41,37 @@ export const notificationApi = {
       });
     }
 
+    const poMap = new Map();
+    if (pos) {
+      pos.forEach(p => {
+        if (p.po_number) poMap.set(p.po_number, p);
+        if (p.poNumber) poMap.set(p.poNumber, p);
+        if (p.id) poMap.set(p.id, p);
+      });
+    }
+
     const procureSession = JSON.parse(localStorage.getItem('procure_session') || '{}');
-    const userRole = procureSession?.user?.role || 'manager';
-    const userVendorId = procureSession?.user?.vendorId || procureSession?.user?.id;
-    const userEmail = procureSession?.user?.email;
+    const currentUser = procureSession?.user;
+    const userRole = currentUser?.role || 'manager';
+    const userVendorId = currentUser?.vendorId || currentUser?.id;
+    const userEmail = currentUser?.email;
 
     const filtered = data.filter(n => {
-      // 1. Role match check
+      // 1. Recipient Email or Org ID check if present in notification record
+      if (n.recipient_email && userEmail && n.recipient_email.toLowerCase() !== userEmail.toLowerCase()) {
+        return false;
+      }
+      if (n.organization_id && currentUser?.id && n.organization_id.toLowerCase() !== currentUser.id.toLowerCase()) {
+        return false;
+      }
+
+      // 2. Role match check
       let roleMatch = false;
       if (userRole === 'manager') {
         roleMatch = n.recipient_role === 'manager' || n.recipient_role === 'organization' || n.recipient_role === 'all' || n.recipient_role === 'governance';
       } else if (userRole === 'vendor') {
         roleMatch = (n.recipient_role === 'vendor' || n.recipient_role === 'governance' || n.recipient_role === 'user') && 
-                    (!n.vendor_id || n.vendor_id === userVendorId || n.vendor_id === userEmail || n.vendor_id === procureSession?.user?.id);
+                    (!n.vendor_id || n.vendor_id === userVendorId || n.vendor_id === userEmail || n.vendor_id === currentUser?.id);
         if (!roleMatch && n.recipient_role === 'all') roleMatch = true;
       } else {
         roleMatch = true;
@@ -59,7 +79,24 @@ export const notificationApi = {
 
       if (!roleMatch) return false;
 
-      // 2. Filter out onboarding notifications if already processed
+      // 3. For Manager/Organization notifications: filter out notifications belonging to POs of OTHER organizations
+      if (userRole === 'manager' && currentUser && n.message) {
+        // Extract PO number if mentioned in title or message (e.g. PO-2026-007)
+        const poMatch = (n.message + ' ' + (n.title || '')).match(/(PO-\d{4}-\d{3})/i);
+        if (poMatch) {
+          const poNum = poMatch[1].toUpperCase();
+          const targetPO = poMap.get(poNum);
+          if (targetPO) {
+            // Check if this PO belongs to the logged-in organization manager
+            const isMine = isPOForOrganization(targetPO, currentUser);
+            if (!isMine) {
+              return false; // Filter out notifications for other organizations' POs!
+            }
+          }
+        }
+      }
+
+      // 4. Filter out onboarding notifications if already processed
       if (n.type === 'vendor_onboarding') {
         if (n.recipient_role === 'manager' || n.recipient_role === 'organization') {
           let vendorStatus = 'Pending';
@@ -134,41 +171,49 @@ export const notificationApi = {
       .update({ read: true })
       .eq('id', id)
       .select('*');
-    if (error) throw error;
-    return data.map(mapDBToNotification);
+    if (error) {
+      console.warn("Mark as read failed:", error.message);
+    }
+    return data;
   },
 
   markAllAsRead: async () => {
     const { data, error } = await supabase
       .from('notifications')
       .update({ read: true })
-      .neq('read', true)
+      .eq('read', false)
       .select('*');
-    if (error) throw error;
-    return data.map(mapDBToNotification);
+    if (error) {
+      console.warn("Mark all as read failed:", error.message);
+    }
+    return data;
   },
 
-  createNotification: async (notif) => {
-    const dbNotif = {
-      id: notif.id || `notif_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-      recipient_role: notif.recipientRole,
-      vendor_id: notif.vendorId || null,
-      title: notif.title,
-      message: notif.message,
-      timestamp: notif.timestamp || new Date().toISOString().split('T')[0] + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+  createNotification: async (notifData) => {
+    const notif = {
+      id: `notif_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      recipient_role: notifData.recipientRole || 'manager',
+      vendor_id: notifData.vendorId || null,
+      title: notifData.title,
+      message: notifData.message,
+      timestamp: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       read: false,
-      type: notif.type || 'general',
-      link: notif.link || null
+      type: notifData.type || 'general',
+      link: notifData.link || null
     };
 
     const { data, error } = await supabase
       .from('notifications')
-      .insert(dbNotif)
+      .insert(notif)
       .select('*');
-    if (error) {
-      console.warn("Failed to create notification in DB:", error.message);
-      return null;
-    }
-    return mapDBToNotification(data[0]);
+
+    if (error) console.warn("Create notification error:", error.message);
+
+    // Broadcast live custom event
+    try {
+      window.dispatchEvent(new CustomEvent('procurehub_notification', { detail: mapDBToNotification(notif) }));
+    } catch (e) {}
+
+    return data ? mapDBToNotification(data[0]) : mapDBToNotification(notif);
   }
 };

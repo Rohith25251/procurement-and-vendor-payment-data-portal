@@ -2,17 +2,21 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { invoiceApi } from '../../api/invoiceApi';
 import { paymentApi } from '../../api/paymentApi';
+import { orderApi } from '../../api/orderApi';
 import { SearchFilterBar } from '../../components/common/SearchFilterBar';
 import { TableSkeleton } from '../../components/common/LoadingSkeleton';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { Modal } from '../../components/common/Modal';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
+import { isPOForOrganization, filterInvoicesForOrganization } from '../../utils/orgFilter';
 import { 
   FileSpreadsheet, AlertTriangle, ShieldCheck, XCircle, FileText, Download, Eye, CheckCircle, Printer, CreditCard 
 } from 'lucide-react';
 
 export const ManagerInvoices = () => {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -39,8 +43,13 @@ export const ManagerInvoices = () => {
   const loadInvoices = async () => {
     setLoading(true);
     try {
-      const data = await invoiceApi.getInvoices();
-      setInvoices(data);
+      const [data, pos] = await Promise.all([
+        invoiceApi.getInvoices(),
+        orderApi.getOrders()
+      ]);
+      const myPOs = pos.filter(o => isPOForOrganization(o, user));
+      const myInvoices = filterInvoicesForOrganization(data, myPOs, user);
+      setInvoices(myInvoices);
     } catch (err) {
       showToast('Failed to load invoice queue', 'error');
     } finally {
@@ -49,8 +58,10 @@ export const ManagerInvoices = () => {
   };
 
   useEffect(() => {
-    loadInvoices();
-  }, []);
+    if (user) {
+      loadInvoices();
+    }
+  }, [user]);
 
   const handleVerify = async (id) => {
     try {

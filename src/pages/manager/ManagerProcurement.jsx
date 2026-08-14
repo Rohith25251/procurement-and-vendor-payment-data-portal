@@ -8,13 +8,16 @@ import { TableSkeleton } from '../../components/common/LoadingSkeleton';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { Modal } from '../../components/common/Modal';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
+import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
+import { isPOForOrganization, filterInvoicesForOrganization } from '../../utils/orgFilter';
 import {
   ShoppingCart, Plus, CheckCircle, Eye, Trash2, Calendar, FileText, Package, Edit, CreditCard
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export const ManagerProcurement = () => {
+  const { user } = useAuth();
   const [orders, setOrders] = useState([]);
   const [vendors, setVendors] = useState([]);
   const [vendorProducts, setVendorProducts] = useState([]);
@@ -61,14 +64,17 @@ export const ManagerProcurement = () => {
         vendorApi.getVendors(),
         invoiceApi.getInvoices()
       ]);
-      setOrders(orderData);
-      setInvoices(invoiceData || []);
+      const myOrders = (orderData || []).filter(o => isPOForOrganization(o, user));
+      const myInvoices = filterInvoicesForOrganization(invoiceData || [], myOrders, user);
+
+      setOrders(myOrders);
+      setInvoices(myInvoices);
       const approved = vendorData.filter(v => v.status === 'Approved');
       setVendors(approved);
 
       // Build set of PO IDs where invoice is already fully Paid
       const paidIds = new Set(
-        invoiceData
+        myInvoices
           .filter(inv => inv.status === 'Paid' && inv.poId)
           .map(inv => inv.poId)
       );
@@ -88,8 +94,10 @@ export const ManagerProcurement = () => {
   };
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (user) {
+      loadData();
+    }
+  }, [user]);
 
   const handleVendorSelectChange = async (vendorId) => {
     setPoForm({ ...poForm, vendorId });
@@ -343,8 +351,10 @@ export const ManagerProcurement = () => {
         notes: poForm.notes,
         totalAmount,
         currency: 'INR',
-        items: formattedItems
-      });
+        items: formattedItems,
+        organizationId: user?.id,
+        organizationName: user?.companyName || user?.name
+      }, user?.name || 'Manager');
 
       showToast('Purchase Order requested successfully', 'success');
       setIsCreateModalOpen(false);

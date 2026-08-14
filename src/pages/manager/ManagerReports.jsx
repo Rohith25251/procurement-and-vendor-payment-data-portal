@@ -5,11 +5,13 @@ import { useToast } from '../../context/ToastContext';
 import { 
   BarChart3, Download, TrendingUp, Award, Building2, PieChart as PieIcon, FileSpreadsheet, CheckCircle2 
 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 import { 
   ResponsiveContainer, BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend 
 } from 'recharts';
 
 export const ManagerReports = () => {
+  const { user } = useAuth();
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
@@ -19,7 +21,7 @@ export const ManagerReports = () => {
     const fetchReport = async () => {
       setLoading(true);
       try {
-        const data = await reportApi.getReportData();
+        const data = await reportApi.getReportData(user);
         setReportData(data);
       } catch (err) {
         showToast('Failed to load analytical report', 'error');
@@ -27,8 +29,10 @@ export const ManagerReports = () => {
         setLoading(false);
       }
     };
-    fetchReport();
-  }, []);
+    if (user) {
+      fetchReport();
+    }
+  }, [user]);
 
   const handleExport = async (format) => {
     setExporting(true);

@@ -2,17 +2,21 @@ import React, { useState, useEffect } from 'react';
 import { paymentApi } from '../../api/paymentApi';
 import { invoiceApi } from '../../api/invoiceApi';
 import { vendorApi } from '../../api/vendorApi';
+import { orderApi } from '../../api/orderApi';
 import { SearchFilterBar } from '../../components/common/SearchFilterBar';
 import { TableSkeleton } from '../../components/common/LoadingSkeleton';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { Modal } from '../../components/common/Modal';
 import { InvoiceOCRModal } from '../../components/ocr/InvoiceOCRModal';
 import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
+import { isPOForOrganization, filterInvoicesForOrganization, filterPaymentsForOrganization } from '../../utils/orgFilter';
 import { 
   CreditCard, IndianRupee, Wallet, CheckCircle, ScanLine
 } from 'lucide-react';
 
 export const ManagerPayments = () => {
+  const { user } = useAuth();
   const [invoicesReady, setInvoicesReady] = useState([]);
   const [paymentsList, setPaymentsList] = useState([]);
   const [vendors, setVendors] = useState([]);
@@ -40,17 +44,20 @@ export const ManagerPayments = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [allInvoices, payments, allVendors] = await Promise.all([
+      const [allInvoices, payments, allVendors, allPOs] = await Promise.all([
         invoiceApi.getInvoices(),
         paymentApi.getPayments(),
-        vendorApi.getVendors()
+        vendorApi.getVendors(),
+        orderApi.getOrders()
       ]);
 
-      // Submitted, Verified, or partially paid invoices ready for payment
-      const ready = allInvoices.filter(i => ['Submitted', 'Verified', 'Partially Paid'].includes(i.status));
+      const myPOs = (allPOs || []).filter(o => isPOForOrganization(o, user));
+      const myInvoices = filterInvoicesForOrganization(allInvoices || [], myPOs, user);
+      const myPayments = filterPaymentsForOrganization(payments || [], myInvoices, myPOs, user);
+
+      const ready = myInvoices.filter(i => ['Submitted', 'Verified', 'Partially Paid'].includes(i.status));
       setInvoicesReady(ready);
-      setPaymentsList(payments);
-      // All registered vendors available for selection in OCR modal
+      setPaymentsList(myPayments);
       setVendors(allVendors);
     } catch (err) {
       showToast('Failed to load payment data', 'error');
@@ -60,8 +67,10 @@ export const ManagerPayments = () => {
   };
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (user) {
+      loadData();
+    }
+  }, [user]);
 
   // Handle OCR-scanned invoice registration
   const handleOCRRegister = async (invoiceData) => {
