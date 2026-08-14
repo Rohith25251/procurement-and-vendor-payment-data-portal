@@ -49,7 +49,7 @@ export const authApi = {
           avatar: user.avatar,
           status: user.status || 'Approved',
           isDeactivated,
-          deactivationReason: user.deactivation_reason || 'Account deactivated due to suspicious activity.',
+          deactivationReason: user.deactivation_reason || user.rejection_reason || user.reason || 'Continued policy violations after official warning',
           reactivationStatus: user.reactivation_status || 'None',
           reactivationReason: user.reactivation_reason || null,
           warningReason: user.warning_reason || null
@@ -104,7 +104,7 @@ export const authApi = {
           avatar: null,
           status: org.status || 'Approved',
           isDeactivated,
-          deactivationReason: org.deactivation_reason || 'Organization account deactivated due to suspicious activity.',
+          deactivationReason: org.deactivation_reason || org.rejection_reason || org.reason || 'Continued policy violations after official warning',
           reactivationStatus: org.reactivation_status || 'None',
           reactivationReason: org.reactivation_reason || null,
           warningReason: org.warning_reason || null
@@ -159,7 +159,7 @@ export const authApi = {
           avatar: null,
           status: vendor.status || 'Approved',
           isDeactivated,
-          deactivationReason: vendor.deactivation_reason || 'Vendor account deactivated due to suspicious activity.',
+          deactivationReason: vendor.deactivation_reason || vendor.rejection_reason || vendor.reason || 'Continued policy violations after official warning',
           reactivationStatus: vendor.reactivation_status || 'None',
           reactivationReason: vendor.reactivation_reason || null,
           warningReason: vendor.warning_reason || null
@@ -211,7 +211,7 @@ export const authApi = {
             ...session.user,
             status: dbUser.status,
             isDeactivated,
-            deactivationReason: dbUser.deactivation_reason || session.user.deactivationReason,
+            deactivationReason: dbUser.deactivation_reason || dbUser.rejection_reason || dbUser.reason || session.user.deactivationReason || 'Continued policy violations after official warning',
             reactivationStatus: dbUser.reactivation_status || session.user.reactivationStatus || 'None',
             reactivationReason: dbUser.reactivation_reason || session.user.reactivationReason,
             warningReason: dbUser.warning_reason || session.user.warningReason

@@ -25,7 +25,7 @@ export const DeactivatedPage = () => {
   }, []);
 
   const reactivationStatus = currentUserData?.reactivationStatus || user?.reactivationStatus || 'None';
-  const deactivationReason = currentUserData?.deactivationReason || user?.deactivationReason || 'Your account was deactivated by Admin due to suspicious activity.';
+  const deactivationReason = currentUserData?.deactivationReason || currentUserData?.deactivation_reason || currentUserData?.rejection_reason || user?.deactivationReason || 'Continued policy violations after official warning';
 
   const handleSubmitRequest = async (e) => {
     e.preventDefault();
@@ -52,6 +52,14 @@ export const DeactivatedPage = () => {
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (e) {}
+    localStorage.removeItem('procure_session');
+    window.location.href = '/login';
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col justify-between p-4 sm:p-6 text-slate-800 font-sans">
       {/* Top Header Navigation */}
@@ -72,8 +80,8 @@ export const DeactivatedPage = () => {
             <span className="block text-[10px] text-slate-500 font-mono">{user?.email}</span>
           </div>
           <button
-            onClick={logout}
-            className="px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-700 font-semibold rounded-xl text-xs flex items-center gap-1.5 border border-slate-200 shadow-xs transition-colors"
+            onClick={handleLogout}
+            className="px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-700 font-semibold rounded-xl text-xs flex items-center gap-1.5 border border-slate-200 shadow-xs transition-colors cursor-pointer"
           >
             <LogOut className="w-3.5 h-3.5" />
             <span>Logout</span>
@@ -202,8 +210,8 @@ export const DeactivatedPage = () => {
                 Your account has been reactivated by Super Admin. Please re-login to access your portal.
               </p>
               <button
-                onClick={logout}
-                className="mt-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs shadow-md"
+                onClick={handleLogout}
+                className="mt-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs shadow-md cursor-pointer"
               >
                 Log In Again
               </button>
